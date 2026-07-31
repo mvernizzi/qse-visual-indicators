@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { securityEvents } from "../data/security";
+import { trello } from "../trello";
 import "./SecurityCross.css";
 
 const rows = [
@@ -18,51 +19,88 @@ const rows = [
 
 function SecurityCross() {
   const [selectedDay, setSelectedDay] = useState(null);
+  const [dayEvents, setDayEvents] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const [dayEvents, setDayEvents] = useState(() => {
-    const savedData = localStorage.getItem("qse-security-events");
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        if (trello) {
+          const savedEvents = await trello.get(
+            "card",
+            "shared",
+            "securityEvents",
+            {}
+          );
 
-    return savedData ? JSON.parse(savedData) : {};
-  });
+          setDayEvents(savedEvents);
+        } else {
+          const savedData = localStorage.getItem("qse-security-events");
+          setDayEvents(savedData ? JSON.parse(savedData) : {});
+        }
+      } catch (error) {
+        console.error("Erreur de chargement sécurité :", error);
+        setDayEvents({});
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const openDialog = (day) => {
-    setSelectedDay(day);
+    loadEvents();
+  }, []);
+
+  const saveEvents = async (updatedEvents) => {
+    setDayEvents(updatedEvents);
+
+    try {
+      if (trello) {
+        await trello.set(
+          "card",
+          "shared",
+          "securityEvents",
+          updatedEvents
+        );
+      } else {
+        localStorage.setItem(
+          "qse-security-events",
+          JSON.stringify(updatedEvents)
+        );
+      }
+    } catch (error) {
+      console.error("Erreur d'enregistrement sécurité :", error);
+      alert(
+        "Impossible d'enregistrer la modification dans Trello."
+      );
+    }
   };
 
-  const closeDialog = () => {
-    setSelectedDay(null);
-  };
-
-  const selectEvent = (event) => {
+  const selectEvent = async (event) => {
     const updatedEvents = {
       ...dayEvents,
       [selectedDay]: event
     };
 
-    setDayEvents(updatedEvents);
-
-    localStorage.setItem(
-      "qse-security-events",
-      JSON.stringify(updatedEvents)
-    );
-
-    closeDialog();
+    setSelectedDay(null);
+    await saveEvents(updatedEvents);
   };
 
-  const resetDay = () => {
+  const resetDay = async () => {
     const updatedEvents = { ...dayEvents };
 
     delete updatedEvents[selectedDay];
 
-    setDayEvents(updatedEvents);
-
-    localStorage.setItem(
-      "qse-security-events",
-      JSON.stringify(updatedEvents)
-    );
-
-    closeDialog();
+    setSelectedDay(null);
+    await saveEvents(updatedEvents);
   };
+
+  if (loading) {
+    return (
+      <section className="security-indicator">
+        <h2>🛡️ Croix Sécurité</h2>
+        <p>Chargement…</p>
+      </section>
+    );
+  }
 
   return (
     <section className="security-indicator">
@@ -88,8 +126,10 @@ function SecurityCross() {
                 key={day}
                 type="button"
                 className={`security-day security-day-${cellColor}`}
-                onClick={() => openDialog(day)}
-                title={selectedEvent?.label || "Journée en sécurité"}
+                onClick={() => setSelectedDay(day)}
+                title={
+                  selectedEvent?.label || "Journée en sécurité"
+                }
               >
                 {day}
               </button>
@@ -118,7 +158,7 @@ function SecurityCross() {
         }
         options={securityEvents}
         onSelect={selectEvent}
-        onClose={closeDialog}
+        onClose={() => setSelectedDay(null)}
       />
 
       {selectedDay !== null && dayEvents[selectedDay] && (
