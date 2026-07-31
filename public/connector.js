@@ -7,7 +7,9 @@ window.TrelloPowerUp.initialize({
       icon: "https://mvernizzi.github.io/qse-visual-indicators/favicon.svg",
       content: {
         type: "iframe",
-        url: "./"
+        url: t.signUrl(
+  "https://mvernizzi.github.io/qse-visual-indicators/"
+)
       }
     };
 
