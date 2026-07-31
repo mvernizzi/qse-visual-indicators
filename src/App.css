@@ -1,0 +1,22 @@
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #eceff3;
+}
+
+.app {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  padding: 30px;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  padding: 20px;
+  width: 360px;
+  min-height: 650px;
+}
