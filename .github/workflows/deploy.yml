@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
@@ -33,14 +32,14 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
-      - name: Construire l’application
+      - name: Construire l'application
         run: npm run build
 
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Préparer les fichiers
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
 
@@ -56,6 +55,3 @@ jobs:
       - name: Publier sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        git add .
-git commit -m "Déploiement GitHub Pages"
-git push
