@@ -111,6 +111,7 @@ export async function createQseEventCard({
 
   if (!response.ok) {
     const errorText = await response.text();
+
     console.error(errorText);
 
     throw new Error(

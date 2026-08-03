@@ -1,4 +1,4 @@
-const APP_KEY = "COLLE_ICI_TA_CLE_API";
+const APP_KEY = "8fa873a464902e9bee20c8fd8665f95a";
 
 export const trello =
   window.self !== window.top && window.TrelloPowerUp
@@ -10,4 +10,3 @@ export const trello =
     : null;
 
 export { APP_KEY };
-const APP_KEY = "8fa873a464902e9bee20c8fd8665f95a";

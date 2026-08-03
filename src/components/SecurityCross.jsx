@@ -36,11 +36,20 @@ function SecurityCross() {
 
           setDayEvents(savedEvents);
         } else {
-          const savedData = localStorage.getItem("qse-security-events");
-          setDayEvents(savedData ? JSON.parse(savedData) : {});
+          const savedData = localStorage.getItem(
+            "qse-security-events"
+          );
+
+          setDayEvents(
+            savedData ? JSON.parse(savedData) : {}
+          );
         }
       } catch (error) {
-        console.error("Erreur de chargement sécurité :", error);
+        console.error(
+          "Erreur de chargement sécurité :",
+          error
+        );
+
         setDayEvents({});
       } finally {
         setLoading(false);
@@ -68,85 +77,64 @@ function SecurityCross() {
         );
       }
     } catch (error) {
-      console.error("Erreur d'enregistrement sécurité :", error);
+      console.error(
+        "Erreur d'enregistrement sécurité :",
+        error
+      );
+
       alert(
         "Impossible d'enregistrer la modification dans Trello."
       );
     }
   };
 
- const selectEvent = async (event) => {
-  const day = selectedDay;
+  const selectEvent = async (event) => {
+    const day = selectedDay;
 
-  alert(`TEST QSE : jour ${day} - ${event.label}`);
+    alert(`TEST QSE : jour ${day} - ${event.label}`);
 
-  const updatedEvents = {
-    ...dayEvents,
-    [day]: event
-  };
+    const updatedEvents = {
+      ...dayEvents,
+      [day]: event
+    };
 
-  setSelectedDay(null);
+    setSelectedDay(null);
 
-  await saveEvents(updatedEvents);
+    await saveEvents(updatedEvents);
 
-  if (event.color !== "green") {
-    try {
-      await createQseEventCard({
-        day,
-        event,
-        indicator: "Sécurité"
-      });
+    if (event.color !== "green") {
+      try {
+        await createQseEventCard({
+          day,
+          event,
+          indicator: "Sécurité"
+        });
 
-      alert(
-        `Carte "${event.label}" créée dans Événements QSE.`
-      );
-    } catch (error) {
-      console.error(error);
+        alert(
+          `Carte "${event.label}" créée dans Événements QSE.`
+        );
+      } catch (error) {
+        console.error(
+          "Erreur création carte QSE :",
+          error
+        );
 
-      alert(
-        `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
-      );
+        alert(
+          `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
+        );
+      }
     }
-  }
-};
-  const day = selectedDay;
-
-  const updatedEvents = {
-    ...dayEvents,
-    [day]: event
   };
-
-  setSelectedDay(null);
-
-  await saveEvents(updatedEvents);
-
-  if (event.color !== "green") {
-    try {
-      await createQseEventCard({
-        day,
-        event,
-        indicator: "Sécurité"
-      });
-
-      alert(
-        `Carte "${event.label}" créée dans Événements QSE.`
-      );
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
-      );
-    }
-  }
-};
 
   const resetDay = async () => {
-    const updatedEvents = { ...dayEvents };
+    const updatedEvents = {
+      ...dayEvents
+    };
 
     delete updatedEvents[selectedDay];
 
     setSelectedDay(null);
+
     await saveEvents(updatedEvents);
   };
 
@@ -154,7 +142,7 @@ function SecurityCross() {
     return (
       <section className="security-indicator">
         <h2>🛡️ Croix Sécurité</h2>
-        <p>Chargement…</p>
+        <p>Chargement...</p>
       </section>
     );
   }
@@ -176,7 +164,9 @@ function SecurityCross() {
             }
 
             const selectedEvent = dayEvents[day];
-            const cellColor = selectedEvent?.color || "green";
+
+            const cellColor =
+              selectedEvent?.color || "green";
 
             return (
               <button
@@ -185,7 +175,8 @@ function SecurityCross() {
                 className={`security-day security-day-${cellColor}`}
                 onClick={() => setSelectedDay(day)}
                 title={
-                  selectedEvent?.label || "Journée en sécurité"
+                  selectedEvent?.label ||
+                  "Journée en sécurité"
                 }
               >
                 {day}
@@ -197,10 +188,14 @@ function SecurityCross() {
 
       <div className="security-legend">
         {securityEvents.map((event) => (
-          <div className="security-legend-item" key={event.label}>
+          <div
+            className="security-legend-item"
+            key={event.label}
+          >
             <span
               className={`security-legend-color security-legend-${event.color}`}
             />
+
             <span>{event.label}</span>
           </div>
         ))}
@@ -218,15 +213,16 @@ function SecurityCross() {
         onClose={() => setSelectedDay(null)}
       />
 
-      {selectedDay !== null && dayEvents[selectedDay] && (
-        <button
-          type="button"
-          className="security-reset-button"
-          onClick={resetDay}
-        >
-          Remettre le jour {selectedDay} en vert
-        </button>
-      )}
+      {selectedDay !== null &&
+        dayEvents[selectedDay] && (
+          <button
+            type="button"
+            className="security-reset-button"
+            onClick={resetDay}
+          >
+            Remettre le jour {selectedDay} en vert
+          </button>
+        )}
     </section>
   );
 }
