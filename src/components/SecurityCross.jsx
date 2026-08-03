@@ -23,6 +23,7 @@ function SecurityCross() {
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // Chargement des événements enregistrés
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -34,7 +35,7 @@ function SecurityCross() {
             {}
           );
 
-          setDayEvents(savedEvents);
+          setDayEvents(savedEvents || {});
         } else {
           const savedData = localStorage.getItem(
             "qse-security-events"
@@ -46,7 +47,7 @@ function SecurityCross() {
         }
       } catch (error) {
         console.error(
-          "Erreur de chargement sécurité :",
+          "Erreur chargement événements sécurité :",
           error
         );
 
@@ -59,6 +60,7 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
+  // Enregistrement des couleurs
   const saveEvents = async (updatedEvents) => {
     setDayEvents(updatedEvents);
 
@@ -78,67 +80,112 @@ function SecurityCross() {
       }
     } catch (error) {
       console.error(
-        "Erreur d'enregistrement sécurité :",
+        "Erreur enregistrement événements sécurité :",
         error
       );
 
-      alert(
-        "Impossible d'enregistrer la modification dans Trello."
-      );
+      throw error;
     }
   };
 
+  // Sélection d'un événement
   const selectEvent = async (event) => {
-    const day = selectedDay;
+    if (selectedDay === null) {
+      return;
+    }
 
-    alert(`TEST QSE : jour ${day} - ${event.label}`);
+    const day = selectedDay;
 
     const updatedEvents = {
       ...dayEvents,
       [day]: event
     };
 
+    // On ferme la fenêtre de sélection
     setSelectedDay(null);
 
-    await saveEvents(updatedEvents);
+    try {
+      // Enregistrement de la couleur
+      await saveEvents(updatedEvents);
 
-    if (event.color !== "green") {
-      try {
-        await createQseEventCard({
-          day,
-          event,
-          indicator: "Sécurité"
-        });
+      // Création d'une carte uniquement
+      // s'il s'agit d'un événement
+      if (event.color !== "green") {
+        try {
+          const card = await createQseEventCard({
+            day,
+            event,
+            indicator: "Sécurité"
+          });
 
-        alert(
-          `Carte "${event.label}" créée dans Événements QSE.`
-        );
-      } catch (error) {
-  console.error(
-    "Erreur création carte QSE :",
-    error
-  );
+          if (card) {
+            alert(
+              `Carte Trello créée avec succès : ${card.name}`
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Erreur création carte QSE :",
+            error
+          );
 
-  alert(
-    `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.
+          const message =
+            error?.message ||
+            String(error) ||
+            "Erreur inconnue";
+
+          alert(
+            `La couleur a été enregistrée.
+
+La carte Trello n'a pas pu être créée.
 
 ERREUR :
+${message}`
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Erreur générale SecurityCross :",
+        error
+      );
+
+      alert(
+        `Impossible d'enregistrer l'événement.
+
 ${error?.message || String(error)}`
-  );
-}
+      );
     }
   };
 
+  // Remise du jour en vert
   const resetDay = async () => {
+    if (selectedDay === null) {
+      return;
+    }
+
     const updatedEvents = {
       ...dayEvents
     };
 
     delete updatedEvents[selectedDay];
 
-    setSelectedDay(null);
+    try {
+      await saveEvents(updatedEvents);
 
-    await saveEvents(updatedEvents);
+      setSelectedDay(null);
+    } catch (error) {
+      console.error(
+        "Erreur remise en vert :",
+        error
+      );
+
+      alert(
+        `Impossible de remettre le jour en vert.
+
+${error?.message || String(error)}`
+      );
+    }
   };
 
   if (loading) {
