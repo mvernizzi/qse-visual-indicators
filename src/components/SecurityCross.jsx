@@ -75,7 +75,40 @@ function SecurityCross() {
     }
   };
 
-  const selectEvent = async (event) => {
+ const selectEvent = async (event) => {
+  const day = selectedDay;
+
+  alert(`TEST QSE : jour ${day} - ${event.label}`);
+
+  const updatedEvents = {
+    ...dayEvents,
+    [day]: event
+  };
+
+  setSelectedDay(null);
+
+  await saveEvents(updatedEvents);
+
+  if (event.color !== "green") {
+    try {
+      await createQseEventCard({
+        day,
+        event,
+        indicator: "Sécurité"
+      });
+
+      alert(
+        `Carte "${event.label}" créée dans Événements QSE.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
+      );
+    }
+  }
+};
   const day = selectedDay;
 
   const updatedEvents = {
