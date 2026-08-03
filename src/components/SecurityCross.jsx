@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { securityEvents } from "../data/security";
 import { trello } from "../trello";
+import { createQseEventCard } from "../trelloEvents";
 import "./SecurityCross.css";
 
 const rows = [
@@ -75,14 +76,37 @@ function SecurityCross() {
   };
 
   const selectEvent = async (event) => {
-    const updatedEvents = {
-      ...dayEvents,
-      [selectedDay]: event
-    };
+  const day = selectedDay;
 
-    setSelectedDay(null);
-    await saveEvents(updatedEvents);
+  const updatedEvents = {
+    ...dayEvents,
+    [day]: event
   };
+
+  setSelectedDay(null);
+
+  await saveEvents(updatedEvents);
+
+  if (event.color !== "green") {
+    try {
+      await createQseEventCard({
+        day,
+        event,
+        indicator: "Sécurité"
+      });
+
+      alert(
+        `Carte "${event.label}" créée dans Événements QSE.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
+      );
+    }
+  }
+};
 
   const resetDay = async () => {
     const updatedEvents = { ...dayEvents };
