@@ -114,15 +114,18 @@ function SecurityCross() {
           `Carte "${event.label}" créée dans Événements QSE.`
         );
       } catch (error) {
-        console.error(
-          "Erreur création carte QSE :",
-          error
-        );
+  console.error(
+    "Erreur création carte QSE :",
+    error
+  );
 
-        alert(
-          `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.\n\n${error.message}`
-        );
-      }
+  alert(
+    `La couleur a été enregistrée, mais la carte Trello n'a pas pu être créée.
+
+ERREUR :
+${error?.message || String(error)}`
+  );
+}
     }
   };
 
