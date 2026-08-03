@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { dysfunctionEvents } from "../data/dysfunction";
+import { trello } from "../trello";
 import "./SecurityCross.css";
 
 const rows = [
@@ -18,27 +19,77 @@ const rows = [
 
 function DysfunctionCross() {
   const [selectedDay, setSelectedDay] = useState(null);
+  const [dayEvents, setDayEvents] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const [dayEvents, setDayEvents] = useState(() => {
-    const saved = localStorage.getItem("qse-dysfunction-events");
-    return saved ? JSON.parse(saved) : {};
-  });
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        if (trello) {
+          const savedEvents = await trello.get(
+            "card",
+            "shared",
+            "dysfunctionEvents",
+            {}
+          );
 
-  const selectEvent = (event) => {
+          setDayEvents(savedEvents);
+        } else {
+          const saved = localStorage.getItem("qse-dysfunction-events");
+          setDayEvents(saved ? JSON.parse(saved) : {});
+        }
+      } catch (error) {
+        console.error(error);
+        setDayEvents({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
+
+  const saveEvents = async (updatedEvents) => {
+    setDayEvents(updatedEvents);
+
+    try {
+      if (trello) {
+        await trello.set(
+          "card",
+          "shared",
+          "dysfunctionEvents",
+          updatedEvents
+        );
+      } else {
+        localStorage.setItem(
+          "qse-dysfunction-events",
+          JSON.stringify(updatedEvents)
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const selectEvent = async (event) => {
     const updated = {
       ...dayEvents,
       [selectedDay]: event
     };
 
-    setDayEvents(updated);
-
-    localStorage.setItem(
-      "qse-dysfunction-events",
-      JSON.stringify(updated)
-    );
-
     setSelectedDay(null);
+
+    await saveEvents(updated);
   };
+
+  if (loading) {
+    return (
+      <section className="security-indicator">
+        <h2>♻️ Dysfonctionnements</h2>
+        <p>Chargement...</p>
+      </section>
+    );
+  }
 
   return (
     <section className="security-indicator">
@@ -80,7 +131,10 @@ function DysfunctionCross() {
 
         {dysfunctionEvents.map((event) => (
 
-          <div className="security-legend-item" key={event.label}>
+          <div
+            className="security-legend-item"
+            key={event.label}
+          >
 
             <span
               className={`security-legend-color security-legend-${event.color}`}
@@ -96,7 +150,7 @@ function DysfunctionCross() {
 
       <EventDialog
         isOpen={selectedDay !== null}
-        title={`Jour ${selectedDay}`}
+        title={`Événement dysfonctionnement — Jour ${selectedDay}`}
         options={dysfunctionEvents}
         onSelect={selectEvent}
         onClose={() => setSelectedDay(null)}
@@ -105,4 +159,5 @@ function DysfunctionCross() {
     </section>
   );
 }
+
 export default DysfunctionCross;
