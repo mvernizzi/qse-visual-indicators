@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { qualityEvents } from "../data/quality";
+import { trello } from "../trello";
 import "./QualityDiamond.css";
 
 const rows = [
@@ -19,11 +20,35 @@ const rows = [
 
 function QualityDiamond() {
   const [selectedDay, setSelectedDay] = useState(null);
+  const [dayEvents, setDayEvents] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const [dayEvents, setDayEvents] = useState(() => {
-    const savedData = localStorage.getItem("qse-quality-events");
-    return savedData ? JSON.parse(savedData) : {};
-  });
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        if (trello) {
+          const savedEvents = await trello.get(
+            "card",
+            "shared",
+            "qualityEvents",
+            {}
+          );
+
+          setDayEvents(savedEvents);
+        } else {
+          const savedData = localStorage.getItem("qse-quality-events");
+          setDayEvents(savedData ? JSON.parse(savedData) : {});
+        }
+      } catch (error) {
+        console.error("Erreur de chargement qualité :", error);
+        setDayEvents({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
 
   const openDialog = (day) => {
     setSelectedDay(day);
@@ -33,36 +58,56 @@ function QualityDiamond() {
     setSelectedDay(null);
   };
 
-  const selectEvent = (event) => {
+  const saveEvents = async (updatedEvents) => {
+    setDayEvents(updatedEvents);
+
+    try {
+      if (trello) {
+        await trello.set(
+          "card",
+          "shared",
+          "qualityEvents",
+          updatedEvents
+        );
+      } else {
+        localStorage.setItem(
+          "qse-quality-events",
+          JSON.stringify(updatedEvents)
+        );
+      }
+    } catch (error) {
+      console.error("Erreur d'enregistrement qualité :", error);
+      alert("Impossible d'enregistrer la modification dans Trello.");
+    }
+  };
+
+  const selectEvent = async (event) => {
     const updatedEvents = {
       ...dayEvents,
       [selectedDay]: event
     };
 
-    setDayEvents(updatedEvents);
-
-    localStorage.setItem(
-      "qse-quality-events",
-      JSON.stringify(updatedEvents)
-    );
-
     closeDialog();
+    await saveEvents(updatedEvents);
   };
 
-  const resetDay = () => {
+  const resetDay = async () => {
     const updatedEvents = { ...dayEvents };
 
     delete updatedEvents[selectedDay];
 
-    setDayEvents(updatedEvents);
-
-    localStorage.setItem(
-      "qse-quality-events",
-      JSON.stringify(updatedEvents)
-    );
-
     closeDialog();
+    await saveEvents(updatedEvents);
   };
+
+  if (loading) {
+    return (
+      <section className="quality-indicator">
+        <h2>💎 Diamant Qualité</h2>
+        <p>Chargement…</p>
+      </section>
+    );
+  }
 
   return (
     <section className="quality-indicator">
