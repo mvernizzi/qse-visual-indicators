@@ -12,6 +12,8 @@ async function getAuthorizedToken() {
   let token = await restApi.getToken();
 
   if (!token) {
+    alert("TEST 1 : demande d'autorisation Trello");
+
     token = await restApi.authorize({
       scope: "read,write",
       expiration: "never"
@@ -19,8 +21,10 @@ async function getAuthorizedToken() {
   }
 
   if (!token) {
-    throw new Error("Autorisation Trello refusée.");
+    throw new Error("Aucun token Trello obtenu.");
   }
+
+  alert("TEST 2 : autorisation Trello OK");
 
   return token;
 }
@@ -28,13 +32,17 @@ async function getAuthorizedToken() {
 async function getTargetList(token) {
   const board = await trello.board("id");
 
+  alert(`TEST 3 : tableau trouvé ${board.id}`);
+
   const response = await fetch(
     `https://api.trello.com/1/boards/${board.id}/lists?fields=id,name&filter=open&key=${APP_KEY}&token=${token}`
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+
     throw new Error(
-      "Impossible de récupérer les listes du tableau Trello."
+      `Erreur récupération listes : ${response.status} ${errorText}`
     );
   }
 
@@ -48,9 +56,11 @@ async function getTargetList(token) {
 
   if (!targetList) {
     throw new Error(
-      `La liste "${TARGET_LIST_NAME}" est introuvable sur ce tableau.`
+      `La liste "${TARGET_LIST_NAME}" est introuvable.`
     );
   }
+
+  alert(`TEST 4 : liste trouvée ${targetList.name}`);
 
   return targetList;
 }
@@ -70,14 +80,8 @@ export async function createQseEventCard({
   event,
   indicator
 }) {
-  if (!trello) {
-    console.log(
-      "Hors Trello : aucune carte événement n'est créée."
-    );
-    return null;
-  }
-
   const token = await getAuthorizedToken();
+
   const targetList = await getTargetList(token);
 
   const date = formatDate(day);
@@ -92,6 +96,8 @@ export async function createQseEventCard({
     "",
     "Carte créée automatiquement depuis le Power-Up Indicateurs QSE."
   ].join("\n");
+
+  alert(`TEST 5 : création de "${cardName}"`);
 
   const response = await fetch(
     `https://api.trello.com/1/cards?key=${APP_KEY}&token=${token}`,
@@ -112,12 +118,14 @@ export async function createQseEventCard({
   if (!response.ok) {
     const errorText = await response.text();
 
-    console.error(errorText);
-
     throw new Error(
-      "Trello n'a pas réussi à créer la carte événement."
+      `Erreur création carte : ${response.status} ${errorText}`
     );
   }
 
-  return response.json();
+  const card = await response.json();
+
+  alert(`TEST 6 : carte créée ${card.name}`);
+
+  return card;
 }
