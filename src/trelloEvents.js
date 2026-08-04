@@ -2,28 +2,11 @@ import { trello, APP_KEY } from "./trello";
 
 const TARGET_LIST_NAME = "Événements QSE";
 
-export async function authorizeTrello() {
-  if (!trello) {
-    throw new Error("Le Power-Up n'est pas ouvert dans Trello.");
-  }
-
-  const restApi = await trello.getRestApi();
-
-  const token = await restApi.authorize({
-    scope: "read,write",
-    expiration: "never"
-  });
-
-  if (!token) {
-    throw new Error("Trello n'a retourné aucun jeton.");
-  }
-
-  return token;
-}
-
 async function getToken() {
   if (!trello) {
-    throw new Error("Le Power-Up n'est pas ouvert dans Trello.");
+    throw new Error(
+      "Le Power-Up n'est pas ouvert dans Trello."
+    );
   }
 
   const restApi = await trello.getRestApi();
@@ -32,7 +15,7 @@ async function getToken() {
 
   if (!token) {
     throw new Error(
-      "Trello n'est pas encore autorisé. Cliquez d'abord sur « Autoriser Trello »."
+      "Aucune autorisation Trello disponible."
     );
   }
 
@@ -43,20 +26,25 @@ async function getTargetList(token) {
   const board = await trello.board("id");
 
   if (!board?.id) {
-    throw new Error("Impossible d'identifier le tableau Trello.");
+    throw new Error(
+      "Impossible d'identifier le tableau Trello."
+    );
   }
 
-  const response = await fetch(
-    `https://api.trello.com/1/boards/${board.id}/lists?fields=id,name&filter=open&key=${encodeURIComponent(
-      APP_KEY
-    )}&token=${encodeURIComponent(token)}`
-  );
+  const url =
+    `https://api.trello.com/1/boards/${board.id}/lists` +
+    `?fields=id,name` +
+    `&filter=open` +
+    `&key=${encodeURIComponent(APP_KEY)}` +
+    `&token=${encodeURIComponent(token)}`;
+
+  const response = await fetch(url);
 
   if (!response.ok) {
     const text = await response.text();
 
     throw new Error(
-      `Impossible de lire les listes Trello (${response.status}) : ${text}`
+      `Impossible de récupérer les listes Trello : ${response.status} ${text}`
     );
   }
 
@@ -65,12 +53,12 @@ async function getTargetList(token) {
   const targetList = lists.find(
     (list) =>
       list.name.trim().toLowerCase() ===
-      TARGET_LIST_NAME.toLowerCase()
+      TARGET_LIST_NAME.trim().toLowerCase()
   );
 
   if (!targetList) {
     throw new Error(
-      `La liste "${TARGET_LIST_NAME}" est introuvable sur ce tableau.`
+      `La liste "${TARGET_LIST_NAME}" est introuvable.`
     );
   }
 
@@ -80,9 +68,16 @@ async function getTargetList(token) {
 function formatDate(day) {
   const now = new Date();
 
-  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const formattedDay = String(day).padStart(
+    2,
+    "0"
+  );
+
+  const month = String(
+    now.getMonth() + 1
+  ).padStart(2, "0");
+
   const year = now.getFullYear();
-  const formattedDay = String(day).padStart(2, "0");
 
   return `${formattedDay}/${month}/${year}`;
 }
@@ -92,32 +87,69 @@ export async function createQseEventCard({
   event,
   indicator
 }) {
+  if (!day) {
+    throw new Error(
+      "Le numéro du jour est manquant."
+    );
+  }
+
+  if (!event) {
+    throw new Error(
+      "L'événement est manquant."
+    );
+  }
+
+  if (!event.label) {
+    throw new Error(
+      "Le libellé de l'événement est manquant."
+    );
+  }
+
+  if (!indicator) {
+    throw new Error(
+      "Le nom de l'indicateur est manquant."
+    );
+  }
+
   const token = await getToken();
 
-  const targetList = await getTargetList(token);
+  const targetList =
+    await getTargetList(token);
 
   const date = formatDate(day);
 
-  const cardName = `${date} - ${event.label}`;
+  const cardName =
+    `${date} - ${event.label}`;
 
   const description = [
-    `Indicateur : ${indicator}`,
-    `Date : ${date}`,
-    `Événement : ${event.label}`,
-    `Couleur : ${event.color}`,
+    `**Indicateur :** ${indicator}`,
     "",
-    "Carte créée automatiquement par Indicateurs QSE."
+    `**Date :** ${date}`,
+    "",
+    `**Événement :** ${event.label}`,
+    "",
+    `**Couleur :** ${event.color || "non définie"}`,
+    "",
+    "---",
+    "",
+    "Carte créée automatiquement depuis le Power-Up Indicateurs QSE."
   ].join("\n");
 
+  const url =
+    `https://api.trello.com/1/cards` +
+    `?key=${encodeURIComponent(APP_KEY)}` +
+    `&token=${encodeURIComponent(token)}`;
+
   const response = await fetch(
-    `https://api.trello.com/1/cards?key=${encodeURIComponent(
-      APP_KEY
-    )}&token=${encodeURIComponent(token)}`,
+    url,
     {
       method: "POST",
+
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type":
+          "application/json"
       },
+
       body: JSON.stringify({
         idList: targetList.id,
         name: cardName,
@@ -128,12 +160,26 @@ export async function createQseEventCard({
   );
 
   if (!response.ok) {
-    const text = await response.text();
+    const text =
+      await response.text();
 
     throw new Error(
-      `Création de la carte refusée (${response.status}) : ${text}`
+      `Création de la carte refusée : ${response.status} ${text}`
     );
   }
 
-  return response.json();
+  const card =
+    await response.json();
+
+  console.log(
+    "Carte QSE créée :",
+    {
+      indicator,
+      day,
+      event: event.label,
+      card: card.name
+    }
+  );
+
+  return card;
 }
