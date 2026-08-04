@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { securityEvents } from "../data/security";
 import { trello } from "../trello";
-import { createQseEventCard } from "../trelloEvents";
+import {
+  authorizeTrello,
+  createQseEventCard
+} from "../trelloEvents";
 import "./SecurityCross.css";
 
 const rows = [
@@ -22,8 +25,8 @@ function SecurityCross() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
+  const [authorizing, setAuthorizing] = useState(false);
 
-  // Chargement des événements enregistrés
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -60,35 +63,49 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
-  // Enregistrement des couleurs
-  const saveEvents = async (updatedEvents) => {
-    setDayEvents(updatedEvents);
-
+  const handleAuthorize = async () => {
     try {
-      if (trello) {
-        await trello.set(
-          "card",
-          "shared",
-          "securityEvents",
-          updatedEvents
-        );
-      } else {
-        localStorage.setItem(
-          "qse-security-events",
-          JSON.stringify(updatedEvents)
-        );
-      }
+      setAuthorizing(true);
+
+      await authorizeTrello();
+
+      alert(
+        "✅ Autorisation Trello réussie !\n\nVous pouvez maintenant créer automatiquement les cartes QSE."
+      );
     } catch (error) {
       console.error(
-        "Erreur enregistrement événements sécurité :",
+        "Erreur autorisation Trello :",
         error
       );
 
-      throw error;
+      alert(
+        `❌ L'autorisation Trello n'a pas abouti.
+
+${error?.message || String(error)}`
+      );
+    } finally {
+      setAuthorizing(false);
     }
   };
 
-  // Sélection d'un événement
+  const saveEvents = async (updatedEvents) => {
+    setDayEvents(updatedEvents);
+
+    if (trello) {
+      await trello.set(
+        "card",
+        "shared",
+        "securityEvents",
+        updatedEvents
+      );
+    } else {
+      localStorage.setItem(
+        "qse-security-events",
+        JSON.stringify(updatedEvents)
+      );
+    }
+  };
+
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -101,15 +118,11 @@ function SecurityCross() {
       [day]: event
     };
 
-    // On ferme la fenêtre de sélection
     setSelectedDay(null);
 
     try {
-      // Enregistrement de la couleur
       await saveEvents(updatedEvents);
 
-      // Création d'une carte uniquement
-      // s'il s'agit d'un événement
       if (event.color !== "green") {
         try {
           const card = await createQseEventCard({
@@ -120,7 +133,9 @@ function SecurityCross() {
 
           if (card) {
             alert(
-              `Carte Trello créée avec succès : ${card.name}`
+              `✅ Carte Trello créée avec succès !
+
+${card.name}`
             );
           }
         } catch (error) {
@@ -129,24 +144,20 @@ function SecurityCross() {
             error
           );
 
-          const message =
-            error?.message ||
-            String(error) ||
-            "Erreur inconnue";
-
           alert(
-            `La couleur a été enregistrée.
+            `La couleur a bien été enregistrée.
 
 La carte Trello n'a pas pu être créée.
 
-ERREUR :
-${message}`
+${error?.message || String(error)}
+
+Si Trello n'est pas encore autorisé, cliquez sur le bouton « 🔐 Autoriser Trello ».`
           );
         }
       }
     } catch (error) {
       console.error(
-        "Erreur générale SecurityCross :",
+        "Erreur enregistrement sécurité :",
         error
       );
 
@@ -158,7 +169,6 @@ ${error?.message || String(error)}`
     }
   };
 
-  // Remise du jour en vert
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
@@ -172,7 +182,6 @@ ${error?.message || String(error)}`
 
     try {
       await saveEvents(updatedEvents);
-
       setSelectedDay(null);
     } catch (error) {
       console.error(
@@ -200,6 +209,32 @@ ${error?.message || String(error)}`
   return (
     <section className="security-indicator">
       <h2>🛡️ Croix Sécurité</h2>
+
+      {trello && (
+        <div
+          style={{
+            marginBottom: "16px",
+            textAlign: "center"
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleAuthorize}
+            disabled={authorizing}
+            style={{
+              padding: "10px 16px",
+              cursor: authorizing
+                ? "wait"
+                : "pointer",
+              fontWeight: "600"
+            }}
+          >
+            {authorizing
+              ? "Autorisation..."
+              : "🔐 Autoriser Trello"}
+          </button>
+        </div>
+      )}
 
       <div className="security-cross">
         {rows.flatMap((row, rowIndex) =>
