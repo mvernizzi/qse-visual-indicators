@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { qualityEvents } from "../data/quality";
 import { trello } from "../trello";
+import { createQseEventCard } from "../trelloEvents";
 import "./QualityDiamond.css";
 
 const rows = [
@@ -22,10 +23,13 @@ function QualityDiamond() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
+        setErrorMessage("");
+
         if (trello) {
           const savedEvents = await trello.get(
             "card",
@@ -34,14 +38,26 @@ function QualityDiamond() {
             {}
           );
 
-          setDayEvents(savedEvents);
+          setDayEvents(savedEvents || {});
         } else {
-          const savedData = localStorage.getItem("qse-quality-events");
-          setDayEvents(savedData ? JSON.parse(savedData) : {});
+          const savedData = localStorage.getItem(
+            "qse-quality-events"
+          );
+
+          setDayEvents(
+            savedData ? JSON.parse(savedData) : {}
+          );
         }
       } catch (error) {
-        console.error("Erreur de chargement qualité :", error);
+        console.error(
+          "Erreur chargement événements qualité :",
+          error
+        );
+
         setDayEvents({});
+        setErrorMessage(
+          "Impossible de charger les événements qualité."
+        );
       } finally {
         setLoading(false);
       }
@@ -50,72 +66,122 @@ function QualityDiamond() {
     loadEvents();
   }, []);
 
-  const openDialog = (day) => {
-    setSelectedDay(day);
-  };
-
-  const closeDialog = () => {
-    setSelectedDay(null);
-  };
-
   const saveEvents = async (updatedEvents) => {
     setDayEvents(updatedEvents);
 
-    try {
-      if (trello) {
-        await trello.set(
-          "card",
-          "shared",
-          "qualityEvents",
-          updatedEvents
-        );
-      } else {
-        localStorage.setItem(
-          "qse-quality-events",
-          JSON.stringify(updatedEvents)
-        );
-      }
-    } catch (error) {
-      console.error("Erreur d'enregistrement qualité :", error);
-      alert("Impossible d'enregistrer la modification dans Trello.");
+    if (trello) {
+      await trello.set(
+        "card",
+        "shared",
+        "qualityEvents",
+        updatedEvents
+      );
+    } else {
+      localStorage.setItem(
+        "qse-quality-events",
+        JSON.stringify(updatedEvents)
+      );
     }
   };
 
   const selectEvent = async (event) => {
+    if (selectedDay === null) {
+      return;
+    }
+
+    const day = selectedDay;
+
     const updatedEvents = {
       ...dayEvents,
-      [selectedDay]: event
+      [day]: event
     };
 
-    closeDialog();
-    await saveEvents(updatedEvents);
+    setSelectedDay(null);
+    setErrorMessage("");
+
+    try {
+      await saveEvents(updatedEvents);
+
+      if (event.color !== "green") {
+        try {
+          await createQseEventCard({
+            day,
+            event,
+            indicator: "Qualité"
+          });
+
+          console.log(
+            `Carte Événements QSE créée pour le jour ${day}.`
+          );
+        } catch (error) {
+          console.error(
+            "Erreur création carte Événements QSE :",
+            error
+          );
+
+          setErrorMessage(
+            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Erreur enregistrement événement qualité :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible d'enregistrer cet événement."
+      );
+    }
   };
 
   const resetDay = async () => {
-    const updatedEvents = { ...dayEvents };
+    if (selectedDay === null) {
+      return;
+    }
+
+    const updatedEvents = {
+      ...dayEvents
+    };
 
     delete updatedEvents[selectedDay];
 
-    closeDialog();
-    await saveEvents(updatedEvents);
+    setErrorMessage("");
+
+    try {
+      await saveEvents(updatedEvents);
+      setSelectedDay(null);
+    } catch (error) {
+      console.error(
+        "Erreur remise en vert :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible de remettre ce jour en vert."
+      );
+    }
   };
 
   if (loading) {
     return (
       <section className="quality-indicator">
         <h2>💎 Diamant Qualité</h2>
-        <p>Chargement…</p>
+        <p>Chargement...</p>
       </section>
     );
   }
 
   return (
     <section className="quality-indicator">
+
       <h2>💎 Diamant Qualité</h2>
 
       <div className="quality-diamond">
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
+
             if (day === null) {
               return (
                 <div
@@ -126,14 +192,19 @@ function QualityDiamond() {
             }
 
             const selectedEvent = dayEvents[day];
-            const cellColor = selectedEvent?.color || "green";
+
+            const cellColor =
+              selectedEvent?.color || "green";
 
             return (
               <button
                 key={day}
                 type="button"
                 className={`quality-day quality-day-${cellColor}`}
-                onClick={() => openDialog(day)}
+                onClick={() => {
+                  setErrorMessage("");
+                  setSelectedDay(day);
+                }}
                 title={
                   selectedEvent?.label ||
                   "Clients et riverains satisfaits"
@@ -148,14 +219,29 @@ function QualityDiamond() {
 
       <div className="quality-legend">
         {qualityEvents.map((event) => (
-          <div className="quality-legend-item" key={event.label}>
+          <div
+            className="quality-legend-item"
+            key={event.label}
+          >
             <span
               className={`quality-legend-color quality-legend-${event.color}`}
             />
+
             <span>{event.label}</span>
           </div>
         ))}
       </div>
+
+      {errorMessage && (
+        <p
+          style={{
+            marginTop: "12px",
+            fontWeight: "600"
+          }}
+        >
+          ⚠️ {errorMessage}
+        </p>
+      )}
 
       <EventDialog
         isOpen={selectedDay !== null}
@@ -166,18 +252,20 @@ function QualityDiamond() {
         }
         options={qualityEvents}
         onSelect={selectEvent}
-        onClose={closeDialog}
+        onClose={() => setSelectedDay(null)}
       />
 
-      {selectedDay !== null && dayEvents[selectedDay] && (
-        <button
-          type="button"
-          className="quality-reset-button"
-          onClick={resetDay}
-        >
-          Remettre le jour {selectedDay} en vert
-        </button>
-      )}
+      {selectedDay !== null &&
+        dayEvents[selectedDay] && (
+          <button
+            type="button"
+            className="quality-reset-button"
+            onClick={resetDay}
+          >
+            Remettre le jour {selectedDay} en vert
+          </button>
+        )}
+
     </section>
   );
 }

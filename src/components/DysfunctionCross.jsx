@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { dysfunctionEvents } from "../data/dysfunction";
 import { trello } from "../trello";
+import { createQseEventCard } from "../trelloEvents";
 import "./SecurityCross.css";
 
 const rows = [
@@ -21,10 +22,13 @@ function DysfunctionCross() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
+        setErrorMessage("");
+
         if (trello) {
           const savedEvents = await trello.get(
             "card",
@@ -33,14 +37,26 @@ function DysfunctionCross() {
             {}
           );
 
-          setDayEvents(savedEvents);
+          setDayEvents(savedEvents || {});
         } else {
-          const saved = localStorage.getItem("qse-dysfunction-events");
-          setDayEvents(saved ? JSON.parse(saved) : {});
+          const savedData = localStorage.getItem(
+            "qse-dysfunction-events"
+          );
+
+          setDayEvents(
+            savedData ? JSON.parse(savedData) : {}
+          );
         }
       } catch (error) {
-        console.error(error);
+        console.error(
+          "Erreur chargement dysfonctionnements :",
+          error
+        );
+
         setDayEvents({});
+        setErrorMessage(
+          "Impossible de charger les dysfonctionnements."
+        );
       } finally {
         setLoading(false);
       }
@@ -52,34 +68,99 @@ function DysfunctionCross() {
   const saveEvents = async (updatedEvents) => {
     setDayEvents(updatedEvents);
 
-    try {
-      if (trello) {
-        await trello.set(
-          "card",
-          "shared",
-          "dysfunctionEvents",
-          updatedEvents
-        );
-      } else {
-        localStorage.setItem(
-          "qse-dysfunction-events",
-          JSON.stringify(updatedEvents)
-        );
-      }
-    } catch (error) {
-      console.error(error);
+    if (trello) {
+      await trello.set(
+        "card",
+        "shared",
+        "dysfunctionEvents",
+        updatedEvents
+      );
+    } else {
+      localStorage.setItem(
+        "qse-dysfunction-events",
+        JSON.stringify(updatedEvents)
+      );
     }
   };
 
   const selectEvent = async (event) => {
-    const updated = {
+    if (selectedDay === null) {
+      return;
+    }
+
+    const day = selectedDay;
+
+    const updatedEvents = {
       ...dayEvents,
-      [selectedDay]: event
+      [day]: event
     };
 
     setSelectedDay(null);
+    setErrorMessage("");
 
-    await saveEvents(updated);
+    try {
+      await saveEvents(updatedEvents);
+
+      if (event.color !== "green") {
+        try {
+          await createQseEventCard({
+            day,
+            event,
+            indicator: "Dysfonctionnement"
+          });
+
+          console.log(
+            `Carte Événements QSE créée pour le jour ${day}.`
+          );
+        } catch (error) {
+          console.error(
+            "Erreur création carte Événements QSE :",
+            error
+          );
+
+          setErrorMessage(
+            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Erreur enregistrement dysfonctionnement :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible d'enregistrer cet événement."
+      );
+    }
+  };
+
+  const resetDay = async () => {
+    if (selectedDay === null) {
+      return;
+    }
+
+    const updatedEvents = {
+      ...dayEvents
+    };
+
+    delete updatedEvents[selectedDay];
+
+    setErrorMessage("");
+
+    try {
+      await saveEvents(updatedEvents);
+      setSelectedDay(null);
+    } catch (error) {
+      console.error(
+        "Erreur remise en vert :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible de remettre ce jour en vert."
+      );
+    }
   };
 
   if (loading) {
@@ -97,64 +178,92 @@ function DysfunctionCross() {
       <h2>♻️ Dysfonctionnements</h2>
 
       <div className="security-cross">
-
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
 
             if (day === null) {
               return (
                 <div
-                  key={`${rowIndex}-${columnIndex}`}
+                  key={`empty-${rowIndex}-${columnIndex}`}
                   className="security-empty"
                 />
               );
             }
 
-            const selected = dayEvents[day];
-            const color = selected?.color || "green";
+            const selectedEvent = dayEvents[day];
+
+            const cellColor =
+              selectedEvent?.color || "green";
 
             return (
               <button
                 key={day}
-                className={`security-day security-day-${color}`}
-                onClick={() => setSelectedDay(day)}
+                type="button"
+                className={`security-day security-day-${cellColor}`}
+                onClick={() => {
+                  setErrorMessage("");
+                  setSelectedDay(day);
+                }}
+                title={
+                  selectedEvent?.label ||
+                  "Aucun dysfonctionnement"
+                }
               >
                 {day}
               </button>
             );
           })
         )}
-
       </div>
 
       <div className="security-legend">
-
         {dysfunctionEvents.map((event) => (
-
           <div
             className="security-legend-item"
             key={event.label}
           >
-
             <span
               className={`security-legend-color security-legend-${event.color}`}
             />
 
-            {event.label}
-
+            <span>{event.label}</span>
           </div>
-
         ))}
-
       </div>
+
+      {errorMessage && (
+        <p
+          style={{
+            marginTop: "12px",
+            fontWeight: "600"
+          }}
+        >
+          ⚠️ {errorMessage}
+        </p>
+      )}
 
       <EventDialog
         isOpen={selectedDay !== null}
-        title={`Événement dysfonctionnement — Jour ${selectedDay}`}
+        title={
+          selectedDay !== null
+            ? `Dysfonctionnement — Jour ${selectedDay}`
+            : ""
+        }
         options={dysfunctionEvents}
         onSelect={selectEvent}
         onClose={() => setSelectedDay(null)}
       />
+
+      {selectedDay !== null &&
+        dayEvents[selectedDay] && (
+          <button
+            type="button"
+            className="security-reset-button"
+            onClick={resetDay}
+          >
+            Remettre le jour {selectedDay} en vert
+          </button>
+        )}
 
     </section>
   );
