@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { securityEvents } from "../data/security";
 import { trello } from "../trello";
-import {
-  authorizeTrello,
-  createQseEventCard
-} from "../trelloEvents";
+import { createQseEventCard } from "../trelloEvents";
 import "./SecurityCross.css";
 
 const rows = [
@@ -25,8 +22,8 @@ function SecurityCross() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
-  const [authorizing, setAuthorizing] = useState(false);
 
+  // Chargement des événements enregistrés
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -63,31 +60,7 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
-  const handleAuthorize = async () => {
-    try {
-      setAuthorizing(true);
-
-      await authorizeTrello();
-
-      alert(
-        "✅ Autorisation Trello réussie !\n\nVous pouvez maintenant créer automatiquement les cartes QSE."
-      );
-    } catch (error) {
-      console.error(
-        "Erreur autorisation Trello :",
-        error
-      );
-
-      alert(
-        `❌ L'autorisation Trello n'a pas abouti.
-
-${error?.message || String(error)}`
-      );
-    } finally {
-      setAuthorizing(false);
-    }
-  };
-
+  // Enregistrement des événements
   const saveEvents = async (updatedEvents) => {
     setDayEvents(updatedEvents);
 
@@ -106,6 +79,7 @@ ${error?.message || String(error)}`
     }
   };
 
+  // Sélection d'un événement
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -118,11 +92,16 @@ ${error?.message || String(error)}`
       [day]: event
     };
 
+    // Ferme la fenêtre de sélection
     setSelectedDay(null);
 
     try {
+      // Enregistre la couleur du jour
       await saveEvents(updatedEvents);
 
+      // Si le jour n'est plus vert,
+      // création automatique d'une carte
+      // dans la liste "Événements QSE"
       if (event.color !== "green") {
         try {
           const card = await createQseEventCard({
@@ -132,10 +111,9 @@ ${error?.message || String(error)}`
           });
 
           if (card) {
-            alert(
-              `✅ Carte Trello créée avec succès !
-
-${card.name}`
+            console.log(
+              "Carte QSE créée :",
+              card.name
             );
           }
         } catch (error) {
@@ -149,9 +127,7 @@ ${card.name}`
 
 La carte Trello n'a pas pu être créée.
 
-${error?.message || String(error)}
-
-Si Trello n'est pas encore autorisé, cliquez sur le bouton « 🔐 Autoriser Trello ».`
+${error?.message || String(error)}`
           );
         }
       }
@@ -169,6 +145,7 @@ ${error?.message || String(error)}`
     }
   };
 
+  // Remettre un jour en vert
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
@@ -182,6 +159,7 @@ ${error?.message || String(error)}`
 
     try {
       await saveEvents(updatedEvents);
+
       setSelectedDay(null);
     } catch (error) {
       console.error(
@@ -197,6 +175,7 @@ ${error?.message || String(error)}`
     }
   };
 
+  // Chargement
   if (loading) {
     return (
       <section className="security-indicator">
@@ -208,37 +187,15 @@ ${error?.message || String(error)}`
 
   return (
     <section className="security-indicator">
+
       <h2>🛡️ Croix Sécurité</h2>
 
-      {trello && (
-        <div
-          style={{
-            marginBottom: "16px",
-            textAlign: "center"
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleAuthorize}
-            disabled={authorizing}
-            style={{
-              padding: "10px 16px",
-              cursor: authorizing
-                ? "wait"
-                : "pointer",
-              fontWeight: "600"
-            }}
-          >
-            {authorizing
-              ? "Autorisation..."
-              : "🔐 Autoriser Trello"}
-          </button>
-        </div>
-      )}
-
       <div className="security-cross">
+
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
+
+            // Case vide
             if (day === null) {
               return (
                 <div
@@ -248,7 +205,8 @@ ${error?.message || String(error)}`
               );
             }
 
-            const selectedEvent = dayEvents[day];
+            const selectedEvent =
+              dayEvents[day];
 
             const cellColor =
               selectedEvent?.color || "green";
@@ -258,7 +216,9 @@ ${error?.message || String(error)}`
                 key={day}
                 type="button"
                 className={`security-day security-day-${cellColor}`}
-                onClick={() => setSelectedDay(day)}
+                onClick={() =>
+                  setSelectedDay(day)
+                }
                 title={
                   selectedEvent?.label ||
                   "Journée en sécurité"
@@ -269,9 +229,12 @@ ${error?.message || String(error)}`
             );
           })
         )}
+
       </div>
 
+      {/* Légende */}
       <div className="security-legend">
+
         {securityEvents.map((event) => (
           <div
             className="security-legend-item"
@@ -281,11 +244,15 @@ ${error?.message || String(error)}`
               className={`security-legend-color security-legend-${event.color}`}
             />
 
-            <span>{event.label}</span>
+            <span>
+              {event.label}
+            </span>
           </div>
         ))}
+
       </div>
 
+      {/* Fenêtre choix événement */}
       <EventDialog
         isOpen={selectedDay !== null}
         title={
@@ -295,9 +262,12 @@ ${error?.message || String(error)}`
         }
         options={securityEvents}
         onSelect={selectEvent}
-        onClose={() => setSelectedDay(null)}
+        onClose={() =>
+          setSelectedDay(null)
+        }
       />
 
+      {/* Bouton remise en vert */}
       {selectedDay !== null &&
         dayEvents[selectedDay] && (
           <button
@@ -308,6 +278,7 @@ ${error?.message || String(error)}`
             Remettre le jour {selectedDay} en vert
           </button>
         )}
+
     </section>
   );
 }
