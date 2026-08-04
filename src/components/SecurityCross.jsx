@@ -22,11 +22,14 @@ function SecurityCross() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState({});
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Chargement des événements enregistrés
   useEffect(() => {
     const loadEvents = async () => {
       try {
+        setErrorMessage("");
+
         if (trello) {
           const savedEvents = await trello.get(
             "card",
@@ -52,6 +55,9 @@ function SecurityCross() {
         );
 
         setDayEvents({});
+        setErrorMessage(
+          "Impossible de charger les événements enregistrés."
+        );
       } finally {
         setLoading(false);
       }
@@ -60,7 +66,7 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
-  // Enregistrement des événements
+  // Enregistrement des couleurs / événements
   const saveEvents = async (updatedEvents) => {
     setDayEvents(updatedEvents);
 
@@ -79,7 +85,7 @@ function SecurityCross() {
     }
   };
 
-  // Sélection d'un événement
+  // Lorsqu'un événement est choisi
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -92,60 +98,53 @@ function SecurityCross() {
       [day]: event
     };
 
-    // Ferme la fenêtre de sélection
+    // On ferme immédiatement la fenêtre de sélection
     setSelectedDay(null);
+    setErrorMessage("");
 
     try {
-      // Enregistre la couleur du jour
+      // 1. Enregistrement de la couleur
       await saveEvents(updatedEvents);
 
-      // Si le jour n'est plus vert,
-      // création automatique d'une carte
-      // dans la liste "Événements QSE"
+      // 2. Si événement différent du vert :
+      // création de la carte dans "Événements QSE"
       if (event.color !== "green") {
         try {
-          const card = await createQseEventCard({
+          await createQseEventCard({
             day,
             event,
             indicator: "Sécurité"
           });
 
-          if (card) {
-            console.log(
-              "Carte QSE créée :",
-              card.name
-            );
-          }
+          console.log(
+            `Carte Événements QSE créée pour le jour ${day}.`
+          );
         } catch (error) {
           console.error(
-            "Erreur création carte QSE :",
+            "Erreur création carte Événements QSE :",
             error
           );
 
-          alert(
-            `La couleur a bien été enregistrée.
-
-La carte Trello n'a pas pu être créée.
-
-${error?.message || String(error)}`
+          // Pas de popup :
+          // on affiche simplement un message sous l'indicateur
+          setErrorMessage(
+            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
           );
         }
       }
     } catch (error) {
       console.error(
-        "Erreur enregistrement sécurité :",
+        "Erreur enregistrement événement sécurité :",
         error
       );
 
-      alert(
-        `Impossible d'enregistrer l'événement.
-
-${error?.message || String(error)}`
+      setErrorMessage(
+        "Impossible d'enregistrer cet événement."
       );
     }
   };
 
-  // Remettre un jour en vert
+  // Remise d'un jour en vert
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
@@ -157,9 +156,10 @@ ${error?.message || String(error)}`
 
     delete updatedEvents[selectedDay];
 
+    setErrorMessage("");
+
     try {
       await saveEvents(updatedEvents);
-
       setSelectedDay(null);
     } catch (error) {
       console.error(
@@ -167,15 +167,13 @@ ${error?.message || String(error)}`
         error
       );
 
-      alert(
-        `Impossible de remettre le jour en vert.
-
-${error?.message || String(error)}`
+      setErrorMessage(
+        "Impossible de remettre ce jour en vert."
       );
     }
   };
 
-  // Chargement
+  // Affichage pendant le chargement
   if (loading) {
     return (
       <section className="security-indicator">
@@ -190,12 +188,12 @@ ${error?.message || String(error)}`
 
       <h2>🛡️ Croix Sécurité</h2>
 
+      {/* Croix Sécurité */}
       <div className="security-cross">
-
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
 
-            // Case vide
+            // Cases vides servant à dessiner la croix
             if (day === null) {
               return (
                 <div
@@ -205,8 +203,7 @@ ${error?.message || String(error)}`
               );
             }
 
-            const selectedEvent =
-              dayEvents[day];
+            const selectedEvent = dayEvents[day];
 
             const cellColor =
               selectedEvent?.color || "green";
@@ -216,9 +213,10 @@ ${error?.message || String(error)}`
                 key={day}
                 type="button"
                 className={`security-day security-day-${cellColor}`}
-                onClick={() =>
-                  setSelectedDay(day)
-                }
+                onClick={() => {
+                  setErrorMessage("");
+                  setSelectedDay(day);
+                }}
                 title={
                   selectedEvent?.label ||
                   "Journée en sécurité"
@@ -229,12 +227,10 @@ ${error?.message || String(error)}`
             );
           })
         )}
-
       </div>
 
       {/* Légende */}
       <div className="security-legend">
-
         {securityEvents.map((event) => (
           <div
             className="security-legend-item"
@@ -244,15 +240,24 @@ ${error?.message || String(error)}`
               className={`security-legend-color security-legend-${event.color}`}
             />
 
-            <span>
-              {event.label}
-            </span>
+            <span>{event.label}</span>
           </div>
         ))}
-
       </div>
 
-      {/* Fenêtre choix événement */}
+      {/* Message uniquement en cas d'erreur */}
+      {errorMessage && (
+        <p
+          style={{
+            marginTop: "12px",
+            fontWeight: "600"
+          }}
+        >
+          ⚠️ {errorMessage}
+        </p>
+      )}
+
+      {/* Fenêtre normale de sélection de l'événement */}
       <EventDialog
         isOpen={selectedDay !== null}
         title={
@@ -262,12 +267,10 @@ ${error?.message || String(error)}`
         }
         options={securityEvents}
         onSelect={selectEvent}
-        onClose={() =>
-          setSelectedDay(null)
-        }
+        onClose={() => setSelectedDay(null)}
       />
 
-      {/* Bouton remise en vert */}
+      {/* Remise en vert */}
       {selectedDay !== null &&
         dayEvents[selectedDay] && (
           <button
