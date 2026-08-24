@@ -104,7 +104,12 @@ async function createMonthlyCard(listId, cardName) {
         idList: listId,
         name: cardName,
         desc:
-          "Carte mensuelle créée automatiquement pour le suivi des indicateurs QSE.",
+          "📊 Suivi mensuel des indicateurs QSE.\n\n" +
+          "Cette carte contient :\n" +
+          "- 🛡️ Croix Sécurité\n" +
+          "- 💎 Diamant Qualité\n" +
+          "- ♻️ Dysfonctionnements\n\n" +
+          "Carte créée automatiquement au début du mois.",
         pos: "top"
       })
     }
@@ -112,7 +117,9 @@ async function createMonthlyCard(listId, cardName) {
 }
 
 async function main() {
-  console.log("Démarrage de l'automatisation QSE mensuelle.");
+  console.log(
+    "Démarrage de l'automatisation QSE mensuelle."
+  );
 
   const now = new Date();
 
@@ -163,8 +170,7 @@ async function main() {
   const activeCards =
     await getCardsFromList(activeList.id);
 
-  // Vérifie si la carte du mois courant
-  // existe déjà.
+  // Vérifie si la carte du mois courant existe déjà.
   const currentCard =
     activeCards.find(
       (card) =>
@@ -181,8 +187,7 @@ async function main() {
       "Aucune nouvelle carte ne sera créée."
     );
   } else {
-    // Archive uniquement les anciennes cartes QSE
-    // mensuelles.
+    // Archive uniquement les anciennes cartes mensuelles QSE.
     const oldMonthlyCards =
       activeCards.filter(
         (card) =>
