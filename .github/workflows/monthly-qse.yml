@@ -1,0 +1,27 @@
+name: Gestion mensuelle QSE
+
+on:
+  schedule:
+    - cron: "15 5 1 * *"
+
+  workflow_dispatch:
+
+jobs:
+  monthly-qse:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Archiver et créer la carte mensuelle
+        env:
+          TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
+          TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
+          TRELLO_BOARD_ID: ${{ secrets.TRELLO_BOARD_ID }}
+        run: node scripts/monthly-qse.js

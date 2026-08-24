@@ -11,11 +11,32 @@ async function getToken() {
 
   const restApi = await trello.getRestApi();
 
-  const token = await restApi.getToken();
+  // Cherche d'abord une autorisation existante
+  let token = await restApi.getToken();
+
+  // Si cet utilisateur n'a jamais autorisé le Power-Up,
+  // Trello lui demande l'autorisation lecture + écriture.
+  if (!token) {
+    try {
+      token = await restApi.authorize({
+        scope: "read,write",
+        expiration: "never"
+      });
+    } catch (error) {
+      console.error(
+        "Autorisation Trello refusée ou interrompue :",
+        error
+      );
+
+      throw new Error(
+        "Vous devez autoriser Indicateurs QSE à accéder à Trello pour créer automatiquement les cartes Événements QSE."
+      );
+    }
+  }
 
   if (!token) {
     throw new Error(
-      "Aucune autorisation Trello disponible."
+      "L'autorisation Trello n'a pas pu être obtenue."
     );
   }
 
@@ -111,6 +132,8 @@ export async function createQseEventCard({
     );
   }
 
+  // Chaque utilisateur possède sa propre autorisation Trello.
+  // Si elle n'existe pas encore, getToken() la demandera.
   const token = await getToken();
 
   const targetList =
