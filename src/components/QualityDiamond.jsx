@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { qualityEvents } from "../data/quality";
-import { trello } from "../trello";
+import {
+  loadQseEvents,
+  saveQseEvents
+} from "../qseStorage";
 import { createQseEventCard } from "../trelloEvents";
 import "./QualityDiamond.css";
 
@@ -25,30 +28,15 @@ function QualityDiamond() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Chargement des événements enregistrés
+  // Chargement des événements enregistrés sur le tableau Trello
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setErrorMessage("");
 
-        if (trello) {
-          const savedEvents = await trello.get(
-            "card",
-            "shared",
-            "qualityEvents",
-            {}
-          );
+        const savedEvents = await loadQseEvents("quality");
 
-          setDayEvents(savedEvents || {});
-        } else {
-          const savedData = localStorage.getItem(
-            "qse-quality-events"
-          );
-
-          setDayEvents(
-            savedData ? JSON.parse(savedData) : {}
-          );
-        }
+        setDayEvents(savedEvents || {});
       } catch (error) {
         console.error(
           "Erreur chargement événements qualité :",
@@ -67,22 +55,9 @@ function QualityDiamond() {
     loadEvents();
   }, []);
 
-  // Enregistrement des événements
+  // Enregistrement des événements sur le tableau Trello
   const saveEvents = async (updatedEvents) => {
-    if (trello) {
-      await trello.set(
-        "card",
-        "shared",
-        "qualityEvents",
-        updatedEvents
-      );
-    } else {
-      localStorage.setItem(
-        "qse-quality-events",
-        JSON.stringify(updatedEvents)
-      );
-    }
-
+    await saveQseEvents("quality", updatedEvents);
     setDayEvents(updatedEvents);
   };
 
@@ -124,7 +99,7 @@ function QualityDiamond() {
           );
 
           setErrorMessage(
-            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
+            "L'événement est enregistré, mais la carte Événements QSE n'a pas pu être créée. Vérifiez que la liste « Événements QSE » existe sur ce tableau."
           );
         }
       }
@@ -135,7 +110,7 @@ function QualityDiamond() {
       );
 
       setErrorMessage(
-        "Impossible d'enregistrer cet événement."
+        "Impossible d'enregistrer cet événement. Vérifiez les autorisations du Power-Up Trello."
       );
     }
   };
@@ -194,10 +169,7 @@ function QualityDiamond() {
             }
 
             const selectedEvent = dayEvents[day];
-
-            // Blanc si aucun événement n'est enregistré
-            const cellColor =
-              selectedEvent?.color || "white";
+            const cellColor = selectedEvent?.color || "white";
 
             return (
               <button
@@ -257,16 +229,15 @@ function QualityDiamond() {
         onClose={() => setSelectedDay(null)}
       />
 
-      {selectedDay !== null &&
-        dayEvents[selectedDay] && (
-          <button
-            type="button"
-            className="quality-reset-button"
-            onClick={resetDay}
-          >
-            Remettre le jour {selectedDay} en blanc
-          </button>
-        )}
+      {selectedDay !== null && dayEvents[selectedDay] && (
+        <button
+          type="button"
+          className="quality-reset-button"
+          onClick={resetDay}
+        >
+          Remettre le jour {selectedDay} en blanc
+        </button>
+      )}
     </section>
   );
 }

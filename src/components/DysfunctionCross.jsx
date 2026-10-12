@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { dysfunctionEvents } from "../data/dysfunction";
-import { trello } from "../trello";
+import {
+  loadQseEvents,
+  saveQseEvents
+} from "../qseStorage";
 import { createQseEventCard } from "../trelloEvents";
 import "./SecurityCross.css";
 
@@ -24,30 +27,15 @@ function DysfunctionCross() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Chargement des événements enregistrés dans Trello
+  // Chargement des événements enregistrés sur le tableau Trello
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setErrorMessage("");
 
-        if (trello) {
-          const savedEvents = await trello.get(
-            "card",
-            "shared",
-            "dysfunctionEvents",
-            {}
-          );
+        const savedEvents = await loadQseEvents("dysfunction");
 
-          setDayEvents(savedEvents || {});
-        } else {
-          const savedData = localStorage.getItem(
-            "qse-dysfunction-events"
-          );
-
-          setDayEvents(
-            savedData ? JSON.parse(savedData) : {}
-          );
-        }
+        setDayEvents(savedEvents || {});
       } catch (error) {
         console.error(
           "Erreur chargement dysfonctionnements :",
@@ -66,22 +54,9 @@ function DysfunctionCross() {
     loadEvents();
   }, []);
 
-  // Enregistrement des événements
+  // Enregistrement des événements sur le tableau Trello
   const saveEvents = async (updatedEvents) => {
-    if (trello) {
-      await trello.set(
-        "card",
-        "shared",
-        "dysfunctionEvents",
-        updatedEvents
-      );
-    } else {
-      localStorage.setItem(
-        "qse-dysfunction-events",
-        JSON.stringify(updatedEvents)
-      );
-    }
-
+    await saveQseEvents("dysfunction", updatedEvents);
     setDayEvents(updatedEvents);
   };
 
@@ -123,7 +98,7 @@ function DysfunctionCross() {
           );
 
           setErrorMessage(
-            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
+            "L'événement est enregistré, mais la carte Événements QSE n'a pas pu être créée. Vérifiez que la liste « Événements QSE » existe sur ce tableau."
           );
         }
       }
@@ -134,7 +109,7 @@ function DysfunctionCross() {
       );
 
       setErrorMessage(
-        "Impossible d'enregistrer cet événement."
+        "Impossible d'enregistrer cet événement. Vérifiez les autorisations du Power-Up Trello."
       );
     }
   };
@@ -193,10 +168,7 @@ function DysfunctionCross() {
             }
 
             const selectedEvent = dayEvents[day];
-
-            // Blanc si aucun événement n'est enregistré
-            const cellColor =
-              selectedEvent?.color || "white";
+            const cellColor = selectedEvent?.color || "white";
 
             return (
               <button
@@ -256,16 +228,15 @@ function DysfunctionCross() {
         onClose={() => setSelectedDay(null)}
       />
 
-      {selectedDay !== null &&
-        dayEvents[selectedDay] && (
-          <button
-            type="button"
-            className="security-reset-button"
-            onClick={resetDay}
-          >
-            Remettre le jour {selectedDay} en blanc
-          </button>
-        )}
+      {selectedDay !== null && dayEvents[selectedDay] && (
+        <button
+          type="button"
+          className="security-reset-button"
+          onClick={resetDay}
+        >
+          Remettre le jour {selectedDay} en blanc
+        </button>
+      )}
     </section>
   );
 }

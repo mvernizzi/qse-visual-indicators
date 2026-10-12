@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import EventDialog from "./EventDialog";
 import { securityEvents } from "../data/security";
-import { trello } from "../trello";
+import {
+  loadQseEvents,
+  saveQseEvents
+} from "../qseStorage";
 import { createQseEventCard } from "../trelloEvents";
 import "./SecurityCross.css";
 
@@ -24,30 +27,15 @@ function SecurityCross() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Chargement des événements enregistrés dans Trello
+  // Chargement des événements enregistrés sur le tableau Trello
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setErrorMessage("");
 
-        if (trello) {
-          const savedEvents = await trello.get(
-            "card",
-            "shared",
-            "securityEvents",
-            {}
-          );
+        const savedEvents = await loadQseEvents("security");
 
-          setDayEvents(savedEvents || {});
-        } else {
-          const savedData = localStorage.getItem(
-            "qse-security-events"
-          );
-
-          setDayEvents(
-            savedData ? JSON.parse(savedData) : {}
-          );
-        }
+        setDayEvents(savedEvents || {});
       } catch (error) {
         console.error(
           "Erreur chargement événements sécurité :",
@@ -66,22 +54,9 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
-  // Enregistrement des événements sans effacer l'historique
+  // Enregistrement des événements sur le tableau Trello
   const saveEvents = async (updatedEvents) => {
-    if (trello) {
-      await trello.set(
-        "card",
-        "shared",
-        "securityEvents",
-        updatedEvents
-      );
-    } else {
-      localStorage.setItem(
-        "qse-security-events",
-        JSON.stringify(updatedEvents)
-      );
-    }
-
+    await saveQseEvents("security", updatedEvents);
     setDayEvents(updatedEvents);
   };
 
@@ -104,7 +79,7 @@ function SecurityCross() {
     try {
       await saveEvents(updatedEvents);
 
-      // Création d'une carte uniquement pour les événements non verts
+      // Création d'une carte pour les événements non verts
       if (event.color !== "green") {
         try {
           await createQseEventCard({
@@ -123,7 +98,7 @@ function SecurityCross() {
           );
 
           setErrorMessage(
-            "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
+            "L'événement est enregistré, mais la carte Événements QSE n'a pas pu être créée. Vérifiez que la liste « Événements QSE » existe sur ce tableau."
           );
         }
       }
@@ -134,13 +109,12 @@ function SecurityCross() {
       );
 
       setErrorMessage(
-        "Impossible d'enregistrer cet événement."
+        "Impossible d'enregistrer cet événement. Vérifiez les autorisations du Power-Up Trello."
       );
     }
   };
 
-  // Réinitialisation d'un jour : suppression de l'événement,
-  // puis affichage d'une case blanche
+  // Réinitialisation d'un jour : suppression de l'événement
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
@@ -194,10 +168,7 @@ function SecurityCross() {
             }
 
             const selectedEvent = dayEvents[day];
-
-            // Blanc si aucun événement n'est enregistré
-            const cellColor =
-              selectedEvent?.color || "white";
+            const cellColor = selectedEvent?.color || "white";
 
             return (
               <button
@@ -257,16 +228,15 @@ function SecurityCross() {
         onClose={() => setSelectedDay(null)}
       />
 
-      {selectedDay !== null &&
-        dayEvents[selectedDay] && (
-          <button
-            type="button"
-            className="security-reset-button"
-            onClick={resetDay}
-          >
-            Remettre le jour {selectedDay} en blanc
-          </button>
-        )}
+      {selectedDay !== null && dayEvents[selectedDay] && (
+        <button
+          type="button"
+          className="security-reset-button"
+          onClick={resetDay}
+        >
+          Remettre le jour {selectedDay} en blanc
+        </button>
+      )}
     </section>
   );
 }
