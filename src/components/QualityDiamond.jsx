@@ -25,6 +25,7 @@ function QualityDiamond() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Chargement des événements enregistrés
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -66,9 +67,8 @@ function QualityDiamond() {
     loadEvents();
   }, []);
 
+  // Enregistrement des événements
   const saveEvents = async (updatedEvents) => {
-    setDayEvents(updatedEvents);
-
     if (trello) {
       await trello.set(
         "card",
@@ -82,8 +82,11 @@ function QualityDiamond() {
         JSON.stringify(updatedEvents)
       );
     }
+
+    setDayEvents(updatedEvents);
   };
 
+  // Sélection d'un événement
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -102,6 +105,7 @@ function QualityDiamond() {
     try {
       await saveEvents(updatedEvents);
 
+      // Création d'une carte pour les événements non verts
       if (event.color !== "green") {
         try {
           await createQseEventCard({
@@ -136,16 +140,16 @@ function QualityDiamond() {
     }
   };
 
+  // Réinitialisation : la case redevient blanche
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
     }
 
-    const updatedEvents = {
-      ...dayEvents
-    };
+    const day = selectedDay;
+    const updatedEvents = { ...dayEvents };
 
-    delete updatedEvents[selectedDay];
+    delete updatedEvents[day];
 
     setErrorMessage("");
 
@@ -154,12 +158,12 @@ function QualityDiamond() {
       setSelectedDay(null);
     } catch (error) {
       console.error(
-        "Erreur remise en vert :",
+        "Erreur réinitialisation jour qualité :",
         error
       );
 
       setErrorMessage(
-        "Impossible de remettre ce jour en vert."
+        "Impossible de réinitialiser ce jour."
       );
     }
   };
@@ -175,13 +179,11 @@ function QualityDiamond() {
 
   return (
     <section className="quality-indicator">
-
       <h2>💎 Diamant Qualité</h2>
 
       <div className="quality-diamond">
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
-
             if (day === null) {
               return (
                 <div
@@ -193,8 +195,9 @@ function QualityDiamond() {
 
             const selectedEvent = dayEvents[day];
 
+            // Blanc si aucun événement n'est enregistré
             const cellColor =
-              selectedEvent?.color || "green";
+              selectedEvent?.color || "white";
 
             return (
               <button
@@ -207,7 +210,7 @@ function QualityDiamond() {
                 }}
                 title={
                   selectedEvent?.label ||
-                  "Clients et riverains satisfaits"
+                  "Aucun événement sélectionné"
                 }
               >
                 {day}
@@ -226,7 +229,6 @@ function QualityDiamond() {
             <span
               className={`quality-legend-color quality-legend-${event.color}`}
             />
-
             <span>{event.label}</span>
           </div>
         ))}
@@ -262,10 +264,9 @@ function QualityDiamond() {
             className="quality-reset-button"
             onClick={resetDay}
           >
-            Remettre le jour {selectedDay} en vert
+            Remettre le jour {selectedDay} en blanc
           </button>
         )}
-
     </section>
   );
 }

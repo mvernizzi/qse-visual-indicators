@@ -24,6 +24,7 @@ function DysfunctionCross() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Chargement des événements enregistrés dans Trello
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -65,9 +66,8 @@ function DysfunctionCross() {
     loadEvents();
   }, []);
 
+  // Enregistrement des événements
   const saveEvents = async (updatedEvents) => {
-    setDayEvents(updatedEvents);
-
     if (trello) {
       await trello.set(
         "card",
@@ -81,8 +81,11 @@ function DysfunctionCross() {
         JSON.stringify(updatedEvents)
       );
     }
+
+    setDayEvents(updatedEvents);
   };
 
+  // Sélection d'un événement
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -101,6 +104,7 @@ function DysfunctionCross() {
     try {
       await saveEvents(updatedEvents);
 
+      // Création d'une carte pour les événements non verts
       if (event.color !== "green") {
         try {
           await createQseEventCard({
@@ -135,16 +139,16 @@ function DysfunctionCross() {
     }
   };
 
+  // Réinitialisation : la case redevient blanche
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
     }
 
-    const updatedEvents = {
-      ...dayEvents
-    };
+    const day = selectedDay;
+    const updatedEvents = { ...dayEvents };
 
-    delete updatedEvents[selectedDay];
+    delete updatedEvents[day];
 
     setErrorMessage("");
 
@@ -153,12 +157,12 @@ function DysfunctionCross() {
       setSelectedDay(null);
     } catch (error) {
       console.error(
-        "Erreur remise en vert :",
+        "Erreur réinitialisation dysfonctionnement :",
         error
       );
 
       setErrorMessage(
-        "Impossible de remettre ce jour en vert."
+        "Impossible de réinitialiser ce jour."
       );
     }
   };
@@ -174,13 +178,11 @@ function DysfunctionCross() {
 
   return (
     <section className="security-indicator">
-
       <h2>♻️ Dysfonctionnements</h2>
 
       <div className="security-cross">
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
-
             if (day === null) {
               return (
                 <div
@@ -192,8 +194,9 @@ function DysfunctionCross() {
 
             const selectedEvent = dayEvents[day];
 
+            // Blanc si aucun événement n'est enregistré
             const cellColor =
-              selectedEvent?.color || "green";
+              selectedEvent?.color || "white";
 
             return (
               <button
@@ -225,7 +228,6 @@ function DysfunctionCross() {
             <span
               className={`security-legend-color security-legend-${event.color}`}
             />
-
             <span>{event.label}</span>
           </div>
         ))}
@@ -261,10 +263,9 @@ function DysfunctionCross() {
             className="security-reset-button"
             onClick={resetDay}
           >
-            Remettre le jour {selectedDay} en vert
+            Remettre le jour {selectedDay} en blanc
           </button>
         )}
-
     </section>
   );
 }

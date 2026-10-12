@@ -24,7 +24,7 @@ function SecurityCross() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Chargement des événements enregistrés
+  // Chargement des événements enregistrés dans Trello
   useEffect(() => {
     const loadEvents = async () => {
       try {
@@ -66,10 +66,8 @@ function SecurityCross() {
     loadEvents();
   }, []);
 
-  // Enregistrement des couleurs / événements
+  // Enregistrement des événements sans effacer l'historique
   const saveEvents = async (updatedEvents) => {
-    setDayEvents(updatedEvents);
-
     if (trello) {
       await trello.set(
         "card",
@@ -83,9 +81,11 @@ function SecurityCross() {
         JSON.stringify(updatedEvents)
       );
     }
+
+    setDayEvents(updatedEvents);
   };
 
-  // Lorsqu'un événement est choisi
+  // Sélection d'un événement
   const selectEvent = async (event) => {
     if (selectedDay === null) {
       return;
@@ -98,16 +98,13 @@ function SecurityCross() {
       [day]: event
     };
 
-    // On ferme immédiatement la fenêtre de sélection
     setSelectedDay(null);
     setErrorMessage("");
 
     try {
-      // 1. Enregistrement de la couleur
       await saveEvents(updatedEvents);
 
-      // 2. Si événement différent du vert :
-      // création de la carte dans "Événements QSE"
+      // Création d'une carte uniquement pour les événements non verts
       if (event.color !== "green") {
         try {
           await createQseEventCard({
@@ -125,8 +122,6 @@ function SecurityCross() {
             error
           );
 
-          // Pas de popup :
-          // on affiche simplement un message sous l'indicateur
           setErrorMessage(
             "La couleur a été enregistrée, mais la carte Événements QSE n'a pas pu être créée."
           );
@@ -144,17 +139,17 @@ function SecurityCross() {
     }
   };
 
-  // Remise d'un jour en vert
+  // Réinitialisation d'un jour : suppression de l'événement,
+  // puis affichage d'une case blanche
   const resetDay = async () => {
     if (selectedDay === null) {
       return;
     }
 
-    const updatedEvents = {
-      ...dayEvents
-    };
+    const day = selectedDay;
+    const updatedEvents = { ...dayEvents };
 
-    delete updatedEvents[selectedDay];
+    delete updatedEvents[day];
 
     setErrorMessage("");
 
@@ -163,17 +158,16 @@ function SecurityCross() {
       setSelectedDay(null);
     } catch (error) {
       console.error(
-        "Erreur remise en vert :",
+        "Erreur réinitialisation jour sécurité :",
         error
       );
 
       setErrorMessage(
-        "Impossible de remettre ce jour en vert."
+        "Impossible de réinitialiser ce jour."
       );
     }
   };
 
-  // Affichage pendant le chargement
   if (loading) {
     return (
       <section className="security-indicator">
@@ -185,15 +179,11 @@ function SecurityCross() {
 
   return (
     <section className="security-indicator">
-
       <h2>🛡️ Croix Sécurité</h2>
 
-      {/* Croix Sécurité */}
       <div className="security-cross">
         {rows.flatMap((row, rowIndex) =>
           row.map((day, columnIndex) => {
-
-            // Cases vides servant à dessiner la croix
             if (day === null) {
               return (
                 <div
@@ -205,8 +195,9 @@ function SecurityCross() {
 
             const selectedEvent = dayEvents[day];
 
+            // Blanc si aucun événement n'est enregistré
             const cellColor =
-              selectedEvent?.color || "green";
+              selectedEvent?.color || "white";
 
             return (
               <button
@@ -219,7 +210,7 @@ function SecurityCross() {
                 }}
                 title={
                   selectedEvent?.label ||
-                  "Journée en sécurité"
+                  "Aucun événement sélectionné"
                 }
               >
                 {day}
@@ -229,7 +220,6 @@ function SecurityCross() {
         )}
       </div>
 
-      {/* Légende */}
       <div className="security-legend">
         {securityEvents.map((event) => (
           <div
@@ -239,13 +229,11 @@ function SecurityCross() {
             <span
               className={`security-legend-color security-legend-${event.color}`}
             />
-
             <span>{event.label}</span>
           </div>
         ))}
       </div>
 
-      {/* Message uniquement en cas d'erreur */}
       {errorMessage && (
         <p
           style={{
@@ -257,7 +245,6 @@ function SecurityCross() {
         </p>
       )}
 
-      {/* Fenêtre normale de sélection de l'événement */}
       <EventDialog
         isOpen={selectedDay !== null}
         title={
@@ -270,7 +257,6 @@ function SecurityCross() {
         onClose={() => setSelectedDay(null)}
       />
 
-      {/* Remise en vert */}
       {selectedDay !== null &&
         dayEvents[selectedDay] && (
           <button
@@ -278,10 +264,9 @@ function SecurityCross() {
             className="security-reset-button"
             onClick={resetDay}
           >
-            Remettre le jour {selectedDay} en vert
+            Remettre le jour {selectedDay} en blanc
           </button>
         )}
-
     </section>
   );
 }

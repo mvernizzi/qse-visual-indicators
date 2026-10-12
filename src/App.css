@@ -1,22 +1,91 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: #eceff3;
+  background: #f4f6f9;
+  color: #172b4d;
 }
 
 .app {
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.dashboard-header {
   display: flex;
-  gap: 20px;
-  justify-content: center;
-  padding: 30px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.dashboard-subtitle {
+  margin: 6px 0 0;
+  color: #626f86;
+  font-size: 14px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .card {
-  background: white;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #dfe1e6;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  box-shadow: 0 3px 10px rgba(9, 30, 66, 0.08);
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.dashboard-history {
+  margin-top: 20px;
+  background: #ffffff;
+  border: 1px solid #dfe1e6;
+  border-radius: 12px;
   padding: 20px;
-  width: 360px;
-  min-height: 650px;
+  box-shadow: 0 3px 10px rgba(9, 30, 66, 0.08);
+}
+
+.dashboard-history h2 {
+  margin-top: 0;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app {
+    padding: 12px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 22px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card {
+    padding: 12px;
+  }
 }

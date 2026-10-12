@@ -19,36 +19,47 @@
 .quality-day {
   width: 44px;
   height: 44px;
-  border: 1px solid #172b4d;
+  border: 1px solid #8590a2;
   border-radius: 5px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  color: white;
+  color: #172b4d;
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
 }
 
-.quality-day:hover {
-  transform: scale(1.08);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+/* Case blanche par défaut */
+.quality-day-white {
+  background-color: #ffffff;
+  color: #172b4d;
 }
 
+/* Couleurs des événements sélectionnés */
 .quality-day-green {
   background-color: #22a06b;
+  color: #ffffff;
 }
 
 .quality-day-blue {
   background-color: #0c66e4;
+  color: #ffffff;
 }
 
 .quality-day-red {
   background-color: #c9372c;
+  color: #ffffff;
 }
 
 .quality-day-black {
   background-color: #172b4d;
+  color: #ffffff;
+}
+
+.quality-day:hover {
+  transform: scale(1.08);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .quality-empty {
