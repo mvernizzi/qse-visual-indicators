@@ -19,7 +19,7 @@ callback: function (t) {
 return t.boardBar({
 url: APP_URL,
 title: "Tableau de bord QSE",
-height: 600,
+height: 900,
 resizable: true,
 accentColor: "#0c66e4"
 });
