@@ -1,4 +1,3 @@
-cat > src/qseStorage.js <<'EOF'
 import { trello } from "./trello";
 
 const STORAGE_KEYS = {
