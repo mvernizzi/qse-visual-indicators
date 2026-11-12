@@ -17,7 +17,7 @@ text: "Tableau de bord QSE",
 condition: "edit",
 callback: function (t) {
 return t.boardBar({
-url: APP_URL,
+url: t.signUrl(APP_URL),
 title: "Tableau de bord QSE",
 height: 900,
 resizable: true,
