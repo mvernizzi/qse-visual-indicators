@@ -1,4 +1,3 @@
-cat > public/connector.js <<'EOF'
 const APP_URL =
   "https://mvernizzi.github.io/qse-visual-indicators/";
 
@@ -6,6 +5,7 @@ const APP_ICON =
   "https://mvernizzi.github.io/qse-visual-indicators/favicon.svg";
 
 window.TrelloPowerUp.initialize({
+
   "board-buttons": function (t) {
     return [
       {
@@ -39,5 +39,5 @@ window.TrelloPowerUp.initialize({
       }
     };
   }
+
 });
-EOF
