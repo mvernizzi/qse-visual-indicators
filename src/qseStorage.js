@@ -29,6 +29,7 @@ export async function loadQseEvents(indicator) {
   }
 
   const savedData = localStorage.getItem(`qse-${key}`);
+
   return savedData ? JSON.parse(savedData) : {};
 }
 
@@ -38,6 +39,9 @@ export async function saveQseEvents(indicator, events) {
   if (trello) {
     await trello.set("board", "shared", key, events);
   } else {
-    localStorage.setItem(`qse-${key}`, JSON.stringify(events));
+    localStorage.setItem(
+      `qse-${key}`,
+      JSON.stringify(events)
+    );
   }
 }
