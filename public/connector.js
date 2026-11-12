@@ -6,8 +6,6 @@ const APP_ICON =
   "https://mvernizzi.github.io/qse-visual-indicators/favicon.svg";
 
 window.TrelloPowerUp.initialize({
-
-  // Bouton dans l'en-tête du tableau Trello
   "board-buttons": function (t) {
     return [
       {
@@ -30,7 +28,6 @@ window.TrelloPowerUp.initialize({
     ];
   },
 
-  // Section au dos des cartes Trello
   "card-back-section": function (t) {
     return {
       title: "Indicateurs QSE",
@@ -42,6 +39,5 @@ window.TrelloPowerUp.initialize({
       }
     };
   }
-
 });
 EOF
