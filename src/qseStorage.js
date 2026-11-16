@@ -7,10 +7,14 @@ const STORAGE_KEYS = {
   dysfunction: "dysfunctionEvents"
 };
 
-function getMonthKey(indicator, year, month) {
-  const baseKey = STORAGE_KEYS[indicator];
+function validateIndicator(indicator) {
+  if (!STORAGE_KEYS[indicator]) {
+    throw new Error(`Indicateur QSE inconnu : ${indicator}`);
+  }
+}
 
-  return `${baseKey}-${year}-${String(month).padStart(2, "0")}`;
+function getMonthKey(indicator, year, month) {
+  return `${STORAGE_KEYS[indicator]}-${year}-${String(month).padStart(2, "0")}`;
 }
 
 function getStorageKey(key) {
@@ -19,13 +23,13 @@ function getStorageKey(key) {
 
 async function readData(key) {
   if (trello) {
-    const data = await trello.get("board", "shared", key);
+    const data = await trello.get("board", "shared", key, {});
     return data || {};
   }
 
   if (isTrelloFrame) {
     throw new Error(
-      "Trello n'est pas initialisé. Vérifie le chargement du Power-Up."
+      "Trello n'est pas initialisé dans cette fenêtre."
     );
   }
 
@@ -33,7 +37,8 @@ async function readData(key) {
     return JSON.parse(
       localStorage.getItem(getStorageKey(key)) || "{}"
     );
-  } catch {
+  } catch (error) {
+    console.error("QSE - Erreur de lecture locale :", error);
     return {};
   }
 }
@@ -46,7 +51,7 @@ async function writeData(key, data) {
 
   if (isTrelloFrame) {
     throw new Error(
-      "Impossible d'enregistrer : le stockage Trello est indisponible."
+      "Stockage Trello indisponible : impossible d'enregistrer."
     );
   }
 
@@ -54,12 +59,6 @@ async function writeData(key, data) {
     getStorageKey(key),
     JSON.stringify(data)
   );
-}
-
-function validateIndicator(indicator) {
-  if (!STORAGE_KEYS[indicator]) {
-    throw new Error(`Indicateur QSE inconnu : ${indicator}`);
-  }
 }
 
 export async function loadQseEvents(indicator) {
@@ -73,8 +72,8 @@ export async function loadQseEvents(indicator) {
 
   let monthData = await readData(monthKey);
 
-  // Migration des anciennes données vers novembre 2026.
-  // Seuls les jours 1 à 15 sont repris.
+  // Migration des anciennes données de novembre 2026.
+  // On conserve les jours 1 à 15.
   if (
     year === 2026 &&
     month === 11 &&
@@ -95,6 +94,13 @@ export async function loadQseEvents(indicator) {
     }
   }
 
+  console.log(
+    "QSE - Données chargées :",
+    indicator,
+    monthKey,
+    monthData
+  );
+
   return monthData;
 }
 
@@ -109,16 +115,66 @@ export async function saveQseEvents(indicator, events) {
     now.getMonth() + 1
   );
 
-  await writeData(monthKey, events);
+  console.log("QSE - Début de l'enregistrement");
+  console.log("QSE - Indicateur :", indicator);
+  console.log("QSE - Clé :", monthKey);
+  console.log("QSE - Données :", events);
 
-  // Vérification immédiate de l'enregistrement.
-  const savedData = await readData(monthKey);
+  try {
+    if (trello) {
+      const context = await trello.getContext();
 
-  if (JSON.stringify(savedData) !== JSON.stringify(events)) {
-    throw new Error(
-      `La vérification du stockage a échoué pour ${indicator}.`
+      console.log(
+        "QSE - Permissions Trello :",
+        context?.permissions
+      );
+
+      if (
+        context?.permissions?.board &&
+        context.permissions.board !== "write"
+      ) {
+        throw new Error(
+          "Droits d'écriture insuffisants sur le tableau Trello."
+        );
+      }
+    } else if (isTrelloFrame) {
+      throw new Error(
+        "Trello n'est pas initialisé dans cette fenêtre."
+      );
+    }
+
+    await writeData(monthKey, events);
+
+    if (trello) {
+      const savedData = await readData(monthKey);
+
+      console.log(
+        "QSE - Vérification après enregistrement :",
+        savedData
+      );
+
+      if (
+        JSON.stringify(savedData) !== JSON.stringify(events)
+      ) {
+        throw new Error(
+          "Les données enregistrées ne correspondent pas aux données envoyées."
+        );
+      }
+    }
+
+    console.log(
+      "QSE - ENREGISTREMENT RÉUSSI :",
+      indicator
     );
-  }
 
-  return savedData;
+    return events;
+
+  } catch (error) {
+    console.error(
+      "QSE - ERREUR D'ENREGISTREMENT :",
+      error
+    );
+
+    throw error;
+  }
 }
