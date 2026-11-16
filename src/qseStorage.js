@@ -1,5 +1,5 @@
 
-import { trello } from "./trello";
+import { trello, isTrelloFrame } from "./trello";
 
 const STORAGE_KEYS = {
   security: "securityEvents",
@@ -7,104 +7,118 @@ const STORAGE_KEYS = {
   dysfunction: "dysfunctionEvents"
 };
 
-const MIGRATION_VERSION = "v1";
+function getMonthKey(indicator, year, month) {
+  const baseKey = STORAGE_KEYS[indicator];
 
-function getMonthKey(indicator) {
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
+  return `${baseKey}-${year}-${String(month).padStart(2, "0")}`;
+}
 
-  return `${STORAGE_KEYS[indicator]}-${month}`;
+function getStorageKey(key) {
+  return `qse-${key}`;
 }
 
 async function readData(key) {
   if (trello) {
-    return (await trello.get("board", "shared", key, {})) || {};
+    const data = await trello.get("board", "shared", key);
+    return data || {};
+  }
+
+  if (isTrelloFrame) {
+    throw new Error(
+      "Trello n'est pas initialisé. Vérifie le chargement du Power-Up."
+    );
   }
 
   try {
-    return JSON.parse(localStorage.getItem(`qse-${key}`) || "{}");
+    return JSON.parse(
+      localStorage.getItem(getStorageKey(key)) || "{}"
+    );
   } catch {
     return {};
   }
 }
 
-async function writeData(key, events) {
+async function writeData(key, data) {
   if (trello) {
-    await trello.set("board", "shared", key, events);
+    await trello.set("board", "shared", key, data);
     return;
   }
 
-  localStorage.setItem(`qse-${key}`, JSON.stringify(events));
-}
-
-async function readMigrationMarker(key) {
-  if (trello) {
-    return await trello.get("board", "shared", key, false);
+  if (isTrelloFrame) {
+    throw new Error(
+      "Impossible d'enregistrer : le stockage Trello est indisponible."
+    );
   }
 
-  return localStorage.getItem(`qse-${key}`) === "true";
+  localStorage.setItem(
+    getStorageKey(key),
+    JSON.stringify(data)
+  );
 }
 
-async function writeMigrationMarker(key) {
-  if (trello) {
-    await trello.set("board", "shared", key, true);
-    return;
+function validateIndicator(indicator) {
+  if (!STORAGE_KEYS[indicator]) {
+    throw new Error(`Indicateur QSE inconnu : ${indicator}`);
   }
-
-  localStorage.setItem(`qse-${key}`, "true");
 }
 
 export async function loadQseEvents(indicator) {
-  const legacyKey = STORAGE_KEYS[indicator];
+  validateIndicator(indicator);
 
-  if (!legacyKey) {
-    throw new Error("Indicateur QSE inconnu.");
-  }
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
 
-  const monthKey = getMonthKey(indicator);
-  const migrationKey = `${monthKey}-migration-${MIGRATION_VERSION}`;
+  const monthKey = getMonthKey(indicator, year, month);
 
   let monthData = await readData(monthKey);
 
-  const now = new Date();
-  const isNovember2026 =
-    now.getFullYear() === 2026 &&
-    now.getMonth() === 10;
+  // Migration des anciennes données vers novembre 2026.
+  // Seuls les jours 1 à 15 sont repris.
+  if (
+    year === 2026 &&
+    month === 11 &&
+    Object.keys(monthData).length === 0
+  ) {
+    const legacyData = await readData(STORAGE_KEYS[indicator]);
 
-  const alreadyMigrated = await readMigrationMarker(migrationKey);
-
-  if (isNovember2026 && !alreadyMigrated) {
-    const legacyData = await readData(legacyKey);
-
-    // Conserver les données historiques du 1er au 15 novembre.
-    // Les jours 16 à 30 restent blancs au départ.
     const historicalData = Object.fromEntries(
       Object.entries(legacyData).filter(([day]) => {
-        const number = Number(day);
-        return number >= 1 && number <= 15;
+        const dayNumber = Number(day);
+        return dayNumber >= 1 && dayNumber <= 15;
       })
     );
 
-    monthData = {
-      ...historicalData,
-      ...monthData
-    };
-
-    await writeData(monthKey, monthData);
-    await writeMigrationMarker(migrationKey);
+    if (Object.keys(historicalData).length > 0) {
+      await writeData(monthKey, historicalData);
+      monthData = historicalData;
+    }
   }
 
   return monthData;
 }
 
 export async function saveQseEvents(indicator, events) {
-  if (!STORAGE_KEYS[indicator]) {
-    throw new Error("Indicateur QSE inconnu.");
-  }
+  validateIndicator(indicator);
 
-  const monthKey = getMonthKey(indicator);
+  const now = new Date();
+
+  const monthKey = getMonthKey(
+    indicator,
+    now.getFullYear(),
+    now.getMonth() + 1
+  );
 
   await writeData(monthKey, events);
+
+  // Vérification immédiate de l'enregistrement.
+  const savedData = await readData(monthKey);
+
+  if (JSON.stringify(savedData) !== JSON.stringify(events)) {
+    throw new Error(
+      `La vérification du stockage a échoué pour ${indicator}.`
+    );
+  }
+
+  return savedData;
 }
