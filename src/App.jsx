@@ -1,14 +1,41 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import SecurityCross from "./components/SecurityCross";
 import QualityDiamond from "./components/QualityDiamond";
 import DysfunctionCross from "./components/DysfunctionCross";
 import { loadQseEvents } from "./qseStorage";
+import { authorizeTrello, isTrelloAuthorized } from "./trelloEvents";
+import { isTrelloFrame } from "./trello";
 
 function App() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [authorized, setAuthorized] = useState(!isTrelloFrame);
+  const [checkingAuthorization, setCheckingAuthorization] = useState(isTrelloFrame);
+  const [authorizationError, setAuthorizationError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (isTrelloFrame) {
+      isTrelloAuthorized()
+        .then((value) => { if (active) setAuthorized(value); })
+        .catch((error) => { if (active) setAuthorizationError(error.message); })
+        .finally(() => { if (active) setCheckingAuthorization(false); });
+    }
+    return () => { active = false; };
+  }, []);
+
+  const connectTrello = async () => {
+    try {
+      setAuthorizationError("");
+      await authorizeTrello();
+      setAuthorized(true);
+    } catch (error) {
+      console.error("Autorisation Trello :", error);
+      setAuthorizationError(error.message || "Autorisation Trello impossible.");
+    }
+  };
 
   const exportQseData = async () => {
     try {
@@ -44,6 +71,22 @@ function App() {
       setExporting(false);
     }
   };
+
+  if (checkingAuthorization) {
+    return <main className="app"><p>Vérification de l’autorisation Trello...</p></main>;
+  }
+
+  if (!authorized) {
+    return (
+      <main className="app">
+        <header className="dashboard-header">
+          <div><h1>📊 Tableau de bord QSE</h1><p className="dashboard-subtitle">Autorisation nécessaire pour lire et créer les cartes événement QSE.</p></div>
+        </header>
+        <button type="button" onClick={connectTrello}>Connecter Trello</button>
+        {authorizationError && <p role="alert">{authorizationError}</p>}
+      </main>
+    );
+  }
 
   return (
     <main className="app">

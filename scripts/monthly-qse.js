@@ -3,13 +3,13 @@ const TOKEN = process.env.TRELLO_TOKEN;
 const BOARD_ID = process.env.TRELLO_BOARD_ID;
 
 const ACTIVE_LIST_NAME = "STANDARD BRIEFING";
+const EVENT_LIST_NAME = "Événements QSE";
 const ARCHIVE_LIST_NAME = "Archives QSE";
-const CARD_PREFIX = "Indicateurs QSE -";
+const MONTHLY_CARD_PREFIX = "Indicateurs QSE -";
+const EVENT_MARKER = "QSE_EVENT_DATA:";
 
 if (!API_KEY || !TOKEN || !BOARD_ID) {
-  console.error(
-    "Variables manquantes : TRELLO_API_KEY, TRELLO_TOKEN ou TRELLO_BOARD_ID."
-  );
+  console.error("Variables manquantes : TRELLO_API_KEY, TRELLO_TOKEN ou TRELLO_BOARD_ID.");
   process.exit(1);
 }
 
@@ -17,225 +17,95 @@ const apiBase = "https://api.trello.com/1";
 
 function authUrl(path) {
   const separator = path.includes("?") ? "&" : "?";
-
-  return (
-    `${apiBase}${path}` +
-    `${separator}key=${encodeURIComponent(API_KEY)}` +
-    `&token=${encodeURIComponent(TOKEN)}`
-  );
+  return `${apiBase}${path}${separator}key=${encodeURIComponent(API_KEY)}&token=${encodeURIComponent(TOKEN)}`;
 }
 
 async function trelloFetch(path, options = {}) {
-  const response = await fetch(
-    authUrl(path),
-    options
-  );
-
+  const response = await fetch(authUrl(path), options);
   if (!response.ok) {
     const text = await response.text();
-
-    throw new Error(
-      `Erreur Trello ${response.status} : ${text}`
-    );
+    throw new Error(`Erreur Trello ${response.status} : ${text}`);
   }
-
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
-function getFrenchMonthName(date) {
-  const monthNames = [
-    "Janvier",
-    "Février",
-    "Mars",
-    "Avril",
-    "Mai",
-    "Juin",
-    "Juillet",
-    "Août",
-    "Septembre",
-    "Octobre",
-    "Novembre",
-    "Décembre"
-  ];
-
-  return monthNames[date.getMonth()];
+async function getLists() {
+  return trelloFetch(`/boards/${BOARD_ID}/lists?fields=id,name&filter=open`);
 }
 
-function getMonthlyCardName(date) {
-  return `${CARD_PREFIX} ${getFrenchMonthName(date)} ${date.getFullYear()}`;
-}
-
-async function getBoardLists() {
-  return trelloFetch(
-    `/boards/${BOARD_ID}/lists?fields=id,name&filter=open`
-  );
-}
-
-async function getCardsFromList(listId) {
-  return trelloFetch(
-    `/lists/${listId}/cards?fields=id,name,idList&filter=open`
-  );
+async function getOpenCards(listId) {
+  return trelloFetch(`/lists/${listId}/cards?filter=open&fields=id,name,desc,idList`);
 }
 
 async function moveCard(cardId, targetListId) {
-  return trelloFetch(
-    `/cards/${cardId}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        idList: targetListId
-      })
-    }
-  );
+  return trelloFetch(`/cards/${cardId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idList: targetListId })
+  });
 }
 
-async function createMonthlyCard(listId, cardName) {
-  return trelloFetch(
-    "/cards",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        idList: listId,
-        name: cardName,
-        desc:
-          "📊 Suivi mensuel des indicateurs QSE.\n\n" +
-          "Cette carte contient :\n" +
-          "- 🛡️ Croix Sécurité\n" +
-          "- 💎 Diamant Qualité\n" +
-          "- ♻️ Dysfonctionnements\n\n" +
-          "Carte créée automatiquement au début du mois.",
-        pos: "top"
-      })
+function getEventDate(card) {
+  const markerLine = (card.desc || "").split("\n").find((line) => line.startsWith(EVENT_MARKER));
+  if (markerLine) {
+    try {
+      const data = JSON.parse(markerLine.slice(EVENT_MARKER.length).trim());
+      if (data.year && data.month) return { year: Number(data.year), month: Number(data.month) };
+    } catch {
+      // On essaie ensuite le format des anciennes cartes.
     }
-  );
+  }
+
+  const match = (card.desc || "").match(/\*\*Date :\*\*\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  if (match) return { year: Number(match[3]), month: Number(match[2]) };
+  const titleMatch = (card.name || "").match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (titleMatch) return { year: Number(titleMatch[3]), month: Number(titleMatch[2]) };
+  return null;
+}
+
+function isBeforeCurrentMonth(date, currentYear, currentMonth) {
+  return date && (date.year < currentYear || (date.year === currentYear && date.month < currentMonth));
 }
 
 async function main() {
-  console.log(
-    "Démarrage de l'automatisation QSE mensuelle."
-  );
-
+  console.log("Démarrage de l'archivage mensuel QSE.");
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const lists = await getLists();
 
-  const currentCardName =
-    getMonthlyCardName(now);
+  const findList = (name) => lists.find((list) => list.name.trim().toLowerCase() === name.toLowerCase());
+  const standardList = findList(ACTIVE_LIST_NAME);
+  const eventList = findList(EVENT_LIST_NAME);
+  const archiveList = findList(ARCHIVE_LIST_NAME);
 
-  console.log(
-    `Mois courant : ${currentCardName}`
-  );
+  if (!archiveList) throw new Error(`Liste « ${ARCHIVE_LIST_NAME} » introuvable.`);
 
-  const lists =
-    await getBoardLists();
-
-  const activeList =
-    lists.find(
-      (list) =>
-        list.name.trim() ===
-        ACTIVE_LIST_NAME
-    );
-
-  const archiveList =
-    lists.find(
-      (list) =>
-        list.name.trim() ===
-        ARCHIVE_LIST_NAME
-    );
-
-  if (!activeList) {
-    throw new Error(
-      `Liste "${ACTIVE_LIST_NAME}" introuvable.`
-    );
-  }
-
-  if (!archiveList) {
-    throw new Error(
-      `Liste "${ARCHIVE_LIST_NAME}" introuvable.`
-    );
-  }
-
-  console.log(
-    `Liste active : ${activeList.name}`
-  );
-
-  console.log(
-    `Liste archives : ${archiveList.name}`
-  );
-
-  const activeCards =
-    await getCardsFromList(activeList.id);
-
-  // Vérifie si la carte du mois courant existe déjà.
-  const currentCard =
-    activeCards.find(
-      (card) =>
-        card.name.trim() ===
-        currentCardName
-    );
-
-  if (currentCard) {
-    console.log(
-      `La carte "${currentCardName}" existe déjà.`
-    );
-
-    console.log(
-      "Aucune nouvelle carte ne sera créée."
-    );
-  } else {
-    // Archive uniquement les anciennes cartes mensuelles QSE.
-    const oldMonthlyCards =
-      activeCards.filter(
-        (card) =>
-          card.name.startsWith(
-            `${CARD_PREFIX} `
-          )
-      );
-
-    for (const card of oldMonthlyCards) {
-      console.log(
-        `Archivage de "${card.name}"...`
-      );
-
-      await moveCard(
-        card.id,
-        archiveList.id
-      );
-
-      console.log(
-        `Carte déplacée dans "${ARCHIVE_LIST_NAME}".`
-      );
+  // Les anciennes cartes récapitulatives sont déplacées en archive, jamais supprimées.
+  if (standardList) {
+    const standardCards = await getOpenCards(standardList.id);
+    const oldDashboardCards = standardCards.filter((card) => card.name.startsWith(MONTHLY_CARD_PREFIX));
+    for (const card of oldDashboardCards) {
+      console.log(`Déplacement de l'ancienne carte récapitulative : ${card.name}`);
+      await moveCard(card.id, archiveList.id);
     }
-
-    console.log(
-      `Création de "${currentCardName}"...`
-    );
-
-    const newCard =
-      await createMonthlyCard(
-        activeList.id,
-        currentCardName
-      );
-
-    console.log(
-      `Nouvelle carte créée : ${newCard.name}`
-    );
   }
 
-  console.log(
-    "Automatisation QSE terminée."
-  );
+  // Les cartes événement du mois terminé sont archivées individuellement.
+  if (eventList) {
+    const eventCards = await getOpenCards(eventList.id);
+    for (const card of eventCards) {
+      const date = getEventDate(card);
+      if (!isBeforeCurrentMonth(date, currentYear, currentMonth)) continue;
+      console.log(`Archivage de l'événement : ${card.name}`);
+      await moveCard(card.id, archiveList.id);
+    }
+  }
+
+  console.log("Archivage QSE terminé. Aucune nouvelle carte « Indicateurs QSE » n'a été créée.");
 }
 
 main().catch((error) => {
-  console.error(
-    "Échec de l'automatisation QSE :",
-    error
-  );
-
+  console.error("Échec de l'automatisation QSE :", error);
   process.exit(1);
 });
