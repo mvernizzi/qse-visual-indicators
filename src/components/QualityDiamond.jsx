@@ -5,7 +5,6 @@ import {
   loadQseEvents,
   saveQseEvents
 } from "../qseStorage";
-import { createQseEventCard } from "../trelloEvents";
 import "./QualityDiamond.css";
 
 const rows = [
@@ -80,29 +79,7 @@ function QualityDiamond() {
     try {
       await saveEvents(updatedEvents);
 
-      // Création d'une carte pour les événements non verts
-      if (event.color !== "green") {
-        try {
-          await createQseEventCard({
-            day,
-            event,
-            indicator: "Qualité"
-          });
 
-          console.log(
-            `Carte Événements QSE créée pour le jour ${day}.`
-          );
-        } catch (error) {
-          console.error(
-            "Erreur création carte Événements QSE :",
-            error
-          );
-
-          setErrorMessage(
-            "L'événement est enregistré, mais la carte Événements QSE n'a pas pu être créée. Vérifiez que la liste « Événements QSE » existe sur ce tableau."
-          );
-        }
-      }
     } catch (error) {
       console.error(
         "Erreur enregistrement événement qualité :",
